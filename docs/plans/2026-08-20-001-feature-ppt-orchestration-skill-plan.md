@@ -1,12 +1,13 @@
 ---
 artifact_contract: spec-unified-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: superseded
+superseded_by: 2026-08-20-002-feature-ppt-orchestration-skill-plan.md
 product_contract_source: spec-brainstorm
 execution: code
-status: active
+status: superseded
 date: 2026-08-20
 deepened: 2026-08-20
-title: PPT Orchestration Skill - Plan
+title: PPT Orchestration Skill - Plan (v1 original)
 topic: ppt-orchestration-skill
 type: feature
 ---
