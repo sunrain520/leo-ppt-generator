@@ -21,7 +21,7 @@ type: feature
 - **Reuse posture:** 约 60% 文件复用（26 个算法文件）、15 个状态/CLI 层淘汰，工作量复用率 80-85%（改造为局部手术）。两个上游的 prompt 准备、图片生成、PPTX 组装、manifest 构建、OCR hints、公式渲染、资产分离和页面校验算法已被社区验证，照抄或轻改即可；仅状态管理、调度入口和安全边界需新建或修复。
 - **Authority hierarchy:** Product Contract 决定产品行为；本 Planning Contract 决定实现边界；目标仓库源码、契约和测试决定完成证据。两个上游仓库提供固定版本的算法导入依据，不再拥有运行时事实。
 - **Decision focus:** 逐文件 disposition 锁定、单一 runtime、canonical state、轻量调度、配置和凭据迁移、产物哈希晋级、分层验收、必须修复的上游缺陷、新增安全能力（URL/SSRF、Office 主动内容、沙箱化 soffice）。
-- **Verification focus:** 先迁移 editable 上游的 7 个测试作为回归基线，再为必须改造的 5 处建 characterization fixtures，新增约 15 个测试覆盖新建能力（SQLite 事务、worker envelope、并发 record、输入安全），总计约 28 个测试文件。v1 不实现 SSIM 视觉对比（降为 warning-only），依赖上游已验证的结构合同（native text、provenance、coordinates）。
+- **Verification focus:** 先迁移 editable 上游的 6 个测试作为回归基线，再为必须改造的 5 处建 characterization fixtures，新增约 34 个测试覆盖新建能力（SQLite 事务、worker envelope、并发 record、输入安全、stage readiness、cleanup、evals），完整测试套件约 45 个测试文件（核心验收测试约 28 个：迁移 6 + characterization 5 + 关键新建 17）。v1 不实现 SSIM 视觉对比（降为 warning-only），依赖上游已验证的结构合同（native text、provenance、coordinates）。
 - **Largest risk:** 复用决策不精确导致重写工作量，或过度保守导致继承上游缺陷。缓解：U1 前置逐文件 disposition 锁定，每个文件明确标记 verbatim/adapted/retired/dedup 及改动范围；必须修复的 4 处缺陷（裸 write_text、缺页 continue、文件名依赖、不 rehash）进入 must-fix 测试。
 - **Stop conditions:** Product Contract 发生范围变化、disposition 表发现上游文件缺失或冲突、无法从 clean tree 固定上游来源、必须修复的 4 处缺陷测试未通过，或 required proof 缺失时停止推进。
 - **Execution profile:** Deep 软件实施计划，共 8 个依赖有序的 Implementation Units；第一版保持单人单项目、CLI/skill 交互，不建设网页端或桌面端。U1 前置 disposition，U2-U4 为轻量控制面，U5 新增安全能力，U6-U7 按 disposition 复用算法层，U8 统一交付。
@@ -195,7 +195,7 @@ type: feature
 - R56. 内容阶段验收必须证明输入来源已记录、大纲已获用户确认、必需素材已映射、未解决缺口已显式披露。
 - R57. 图片版验收必须证明预期页面齐全、后端来源可追踪、样张方法被继承、逐页 QA 完成且 PPTX 可打开。
 - R58. 可编辑版验收必须证明每个选定页面由可重建 manifest 驱动、页面验证通过、最终 deck 页序和媒体关系正确，并且不存在整页源图叠加少量文字框的伪可编辑模式。
-- R59. 图片版与可编辑版之间必须执行逐页对照；文字缺失、布局溢出、关键对象丢失、背景明显漂移和错误对象来源属于必须修复的问题，低风险装饰差异才可以作为 warning 交付。
+- R59. 图片版与可编辑版之间必须执行逐页对照；文字缺失、布局溢出、关键对象丢失、背景明显漂移和错误对象来源属于必须修复的问题，低风险装饰差异才可以作为 warning 交付。**v1 的逐页对照指结构合同自动化验证（native text 100% 覆盖、anti-fake 含改名源图与 95% 覆盖逃逸、asset provenance、coordinates 完整、manifest 驱动）加代表性页面人工视觉抽查；SSIM 视觉回归推迟到 v2。**
 - R60. 任何阶段未通过其必需验收门时，统一 runtime 不得把相应交付变体标记为完成。
 
 #### Upstream Governance Contract
@@ -297,7 +297,7 @@ v2 保留 v1 的全部正确判断（单一 runtime、canonical state、必须�
 | 维度 | v1 | v2 | 依据 |
 | --- | --- | --- | --- |
 | 上游 disposition | 推给 `path-map.yaml`，正文不承诺比例 | U1 前置逐文件锁定，正文承诺约 60% 文件复用 | 实施者读 U6/U7 只应看到改动点，不是 18 个待写文件 |
-| 测试规模 | 约 60 文件，codex 全量 characterization | 约 28 文件：迁移 7 + characterization 5 + 新建 16 | characterization 是重构的代价，不是复用的代价；逐字复用只需 import smoke |
+| 测试规模 | 约 60 文件，codex 全量 characterization | 完整测试套件约 45 文件：迁移 6 + characterization 5 + 新建 34 | characterization 是重构的代价，不是复用的代价；逐字复用需 fixture 一致性证明 |
 | JSON Schema | 7 个 | 2 个（worker-envelope、editable-page-manifest） | 只有跨真实进程边界才需 schema；Python 内部用 dataclass |
 | 验收门 | G0–G7 八道全新建 | 3 项新增（G0/G1/G7）+ 3 项 bug 修复（G4/G5/G6）+ 2 项复用上游隐式审批（G2/G3） | 上游已在交付，其质量判断够用；新门只加在新增风险上 |
 | 状态机制 | transactional outbox + fencing token + 额度分配器 + Online Backup 仪式 | 单事务 + attempt 表 + 晋级前当前性检查 + Online Backup（保留，成本低） | outbox/fencing 对抗网络分区与多写者抢占；单机 CLI 的失败模式是 crash 和磁盘满 |
@@ -400,12 +400,12 @@ Product Contract 的 D1–D12、R1–R66、F1–F6、AE1–AE14 一律不动。R
 
 #### 复用统计与工作量含义
 
-- verbatim/dedup：约 22 个文件，仅需 import smoke test，不需 characterization。
+- verbatim/dedup：约 22 个文件，需 import smoke test 与 fixture 一致性证明（去 I/O、改 import 后对上游 fixture 产生一致输出）。
 - adapted：约 13 个文件，改动为 3–30 行级局部手术，其中 5 处为 must-fix 缺陷修复，需 characterization fixture。
 - retired：约 15 个文件，全部集中在 state/dispatch/CLI 层，无算法损失。
 - migrate：6 个上游测试直接迁移为回归基线，1 个标 reference-only。
 
-文件复用率约 60%，工作量复用率 80–85%。codex 上游无自动化测试，其"社区验证"来源于真实用户产出可用 PPT，而非回归保护——因此 codex 侧的 verbatim 复用是安全的（行为已被使用验证），但 codex 侧的 adapted 改动必须先建 characterization fixture 固定改动前行为。
+文件复用率约 60%，工作量复用率 80–85%。codex 上游无自动化测试，其"社区验证"来源于真实用户产出可用 PPT，而非回归保护——因此 codex 侧的 verbatim 复用已被使用验证，但仍需通过 fixture 一致性测试证明去 I/O、改 import 后行为不变；codex 侧的 adapted 改动必须先建 characterization fixture 固定改动前行为。
 
 ### High-Level Technical Design
 
@@ -565,7 +565,7 @@ docs/
 | G1 Input | 新增 | MIME、size、SHA-256、用途、归一化结果；URL 请求/final URL、MIME、正文/HTML hash、extractor/version 和完整性状态；Office 主动内容扫描与 converter sandbox receipt | 非法路径、archive/PPTX zip 风险、VBA/OLE/DDE/外部关系/远程媒体、SSRF、超限或软拦截进入 blocked，不声称已读取 |
 | G2 Content | 复用 | source ledger、outline version/hash、用户确认 event、素材映射和 unresolved gaps | 未确认不得进入视觉生成 |
 | G3 Visual contract | 复用 | style/backend/sample method、样张 hash、用户批准 event；后续 job 必须匹配 backend family 和方法（复用 `record_slide_result.py` 的 backend 匹配逻辑） | 不匹配结果隔离并失败，不自动换 backend |
-| G4 Image deck | 修复 | 预期 slide ID 集合精确相等、每页 hash/backend/attempt/QA、无 active/blocked、PPTX 实际页数/页序/notes | **修复 `assemble_ppt.py` 缺页 continue 后仍报成功**；缺页、额外页、组装 warning 或 QA hard issue 均失败；通过后可交付 image variant |
+| G4 Image deck | 修复 | 预期 slide ID 集合精确相等、每页 hash/backend/attempt/QA、无 active/blocked、PPTX 实际页数/页序/notes；**QA 至少包含页面标题存在性、关键数字正确性、必需素材（图表/logo）出现；OCR 可用时自动验证，不可用时人工确认或标记 `qa_degraded`** | **修复 `assemble_ppt.py` 缺页 continue 后仍报成功**；缺页、额外页、组装 warning 或 QA hard issue 均失败；通过后可交付 image variant |
 | G5 Selected editable pages | 修复 | versioned manifest、required native text 100% 覆盖、对象坐标/来源、asset/media hash、page validation、整页 raster 检测 | **修复 `validate_pptx.py` 文件名依赖**；伪可编辑、文字缺失/溢出、对象来源违规或 hash mismatch hard fail |
 | G6 Editable/hybrid deck | 修复 | record hash 重算、immutable manifests、page mode、页数/页序、notes/media relationships、final hash、open smoke | **修复 `finalize_deck_run.py` 不 rehash 的 TOCTOU**；未选页明确保留 image mode；不得把 hybrid 声称为全套 editable |
 | G7 Completion | 新增 | 当前 task/decision revision 下所有 required proof、用户决策、final artifact hash | 任一 proof missing/failed/stale/hash mismatch 时拒绝 `completed` |
@@ -586,7 +586,7 @@ v1 的 editable 硬门完全由上游已验证的结构合同构成，**不引�
 ### Configuration, Privacy, and Network Boundaries
 
 - 配置优先级固定为任务显式非敏感选择、环境变量、用户配置、内置默认值；输出必须解释每个生效值的来源，但 secret 只显示 presence、reference 和不可逆指纹。
-- secret 不得进入 CLI argv、任务 DB/投影、prompt、manifest、日志、异常、subprocess command、diagnostic 或 proof。用户配置权限为 0600，拒绝 symlink 覆盖；secret canary 必须扫描全任务目录和诊断包。
+- secret 不得进入 CLI argv、任务 DB/投影、prompt、manifest、日志、异常、subprocess command、diagnostic 或 proof。用户配置权限为 0600，拒绝 symlink 覆盖；secret canary 必须扫描全任务目录和诊断包。**任务根目录默认权限 0700，敏感文件（输入原件、OCR 产物、日志、配置）默认 0600；使用安全临时文件（`tempfile.mkstemp`/`NamedTemporaryFile` with `mode=0o600`）和 no-follow 创建策略（`O_NOFOLLOW` 或 `Path.resolve(strict=True)` 前置检查）。** 测试必须验证任务目录、敏感文件权限、symlink 攻击防护和失败清理后的残留。
 - OS credential store 不可用时仅允许环境变量注入，doctor 报告 capability missing；不得回退为明文配置。`CODEX_AUTH_FILE` 只作为外部只读 reference，doctor 独立报告 missing、malformed、unsafe-permissions 和 expired/unverifiable，不复制 token 或把完整路径写入任务。旧明文迁移先 preview mapping/conflict，再写 secret store、验证 reference、写 migration marker，保留旧文件只读并提示用户清理。
 - provider credential 绑定精确 HTTPS origin；传输必须校验证书，禁止携带认证跨 origin redirect，并对初始连接和每次 redirect 执行 private/link-local/metadata IP 与 DNS rebinding 防护。系统代理、adapter fallback 或用户自定义 endpoint 都不能放宽该策略。**`factory.py` 的域名子串嗅探必须移除**（KTD7）。
 - 云端处理按阶段记录 provider、job kind、payload 版本、实际上传数据类别、用途和已知 retention；每种 job kind 的 data-class allowlist 默认拒绝无关原文、OCR、内部 prompt、日志和其他页面。spy provider 必须断言真实 request 仅含允许字段。诊断默认只含脱敏元数据，含正文或图像的 support bundle 必须显式 opt-in。
@@ -750,7 +750,7 @@ U1 的 disposition ledger 若在实施中发现上游文件缺失、行号漂移
 - **Requirements:** R26–R31、R37–R42、R49–R54；F4–F6；AE8、AE9、AE11。
 - **Dependencies:** U2、U3。
 - **Files:** `[new] src/leo_ppt_generator/runtime/scheduler/service.py`、`[new] src/leo_ppt_generator/runtime/scheduler/leases.py`、`[new] src/leo_ppt_generator/runtime/scheduler/recovery.py`、`[new] src/leo_ppt_generator/runtime/scheduler/policies.py`、`[new] src/leo_ppt_generator/runtime/workers/protocol.py`、`[new] src/leo_ppt_generator/runtime/workers/local_process.py`、`[new] src/leo_ppt_generator/runtime/workers/agent_host.py`、`[new] src/leo_ppt_generator/runtime/cleanup.py`、`[new] src/leo_ppt_generator/cli/task.py`、`[new] contracts/worker-envelope.schema.json`、`[new] tests/unit/scheduler/test_atomic_claim.py`、`[new] tests/unit/scheduler/test_attempt_currency.py`、`[new] tests/unit/scheduler/test_cancellation.py`、`[new] tests/unit/scheduler/test_retry_policy.py`、`[new] tests/unit/scheduler/test_crash_recovery.py`、`[new] tests/unit/runtime/test_cleanup.py`、`[new] tests/contracts/test_cli_contract.py`、`[new] tests/contracts/test_worker_envelope.py`、`[new] tests/integration/test_agent_host_adapter.py`、`[new] tests/integration/test_concurrent_result_recording.py`、`CHANGELOG.md`。
-- **Approach:** `task next` 只从 canonical store 派生版本化 dispatch intent；claim、并发上限、attempt、lease 在**同一事务**提交（无 outbox 表）。local-process 和 agent-host adapter 共享 `activate/heartbeat/record/terminal` 回写协议，宿主负责实际 subagent/image-tool 调用。worker prompt 只做 best-effort 提醒；runtime 仅提供 allowlisted input refs 和 attempt write scope。record 先验证 envelope、**attempt 当前性**（`attempts.id == units.current_attempt_id`）、hash、containment 和当前 revision；非当前 attempt 的结果进 quarantine。cancel 冻结新派发，recover 先 reconciliation，retry 必须满足失败分类和 fingerprint policy。cleanup 先产生分类 dry-run，active lease 时拒绝 apply。无 daemon，lease 过期在下次 CLI 调用惰性发现。
+- **Approach:** `task next` 只从 canonical store 派生版本化 dispatch intent；claim、并发上限、attempt、lease 在**同一事务**提交（无 outbox 表）。local-process 和 agent-host adapter 共享 `activate/heartbeat/record/terminal` 回写协议，宿主负责实际 subagent/image-tool 调用。**本地 worker subprocess 使用环境变量 allowlist（只保留 `PATH`、`HOME`、`TMPDIR`、`LANG` 等安全变量）、关闭继承文件描述符（`close_fds=True`）、固定 cwd 到 attempt scope；父进程 provider transport 代理凭据调用，worker 不直接访问 secret 环境变量或配置文件。** worker prompt 只做 best-effort 提醒；runtime 仅提供 allowlisted input refs 和 attempt write scope。record 先验证 envelope、**attempt 当前性**（`attempts.id == units.current_attempt_id`）、hash、containment 和当前 revision；非当前 attempt 的结果进 quarantine。cancel 冻结新派发，recover 先 reconciliation，retry 必须满足失败分类和 fingerprint policy。cleanup 先产生分类 dry-run，active lease 时拒绝 apply。无 daemon，lease 过期在下次 CLI 调用惰性发现。
 - **Patterns to follow:** 保留两个上游"worker 只拥有单页/单 slide"的隔离；替换其"先 spawn 后记录"和把 `dispatched` 当 lease 的非原子模式。editable `tests/test_dispatch_concurrency.py` 标 reference-only，其容量语义（默认 6）作为 policy 默认值参考。
 - **Test scenarios:**
   1. Covers AE11. 两个 scheduler 同时 claim 同一 unit，只有一个取得 lease；全局最大 1 时不超发。
