@@ -1,0 +1,21 @@
+{
+  "name": "leo-ppt-generator",
+  "interface": {
+    "displayName": "Leo PPT Generator"
+  },
+  "plugins": [
+    {
+      "name": "leo-ppt-generator",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/sunrain520/leo-ppt-generator.git",
+        "ref": "feat/leo-ppt-generator-release"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

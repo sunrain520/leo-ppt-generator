@@ -1,6 +1,8 @@
 # spec-first:start
 # host-local scratch and settings
-.agents/
+.agents/*
+!.agents/plugins/
+!.agents/plugins/marketplace.json
 .codex/
 .claude/tasks/
 .claude/worktrees/
