@@ -1,0 +1,25 @@
+{
+  "name": "leo-ppt-generator",
+  "version": "0.1.0",
+  "description": "从材料生成并验证图片式、对象级可编辑或混合 PPTX。",
+  "author": {
+    "name": "leokuang",
+    "url": "https://github.com/sunrain520"
+  },
+  "homepage": "https://github.com/sunrain520/leo-ppt-generator",
+  "repository": "https://github.com/sunrain520/leo-ppt-generator",
+  "license": "MIT",
+  "keywords": ["ppt", "powerpoint", "presentation", "slides"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Leo PPT Generator",
+    "shortDescription": "生成并验证图片式、可编辑或混合 PPTX",
+    "longDescription": "从文章、报告、图片、PDF 或可信演示文稿生成并验证合适类型的 PPTX。",
+    "developerName": "leokuang",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "将我的材料生成并验证为合适类型的 PPTX。"
+    ]
+  }
+}

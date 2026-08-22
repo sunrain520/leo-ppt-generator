@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "leo-ppt-generator/bootstrap-result/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "schema_version",
+    "platform",
+    "architecture",
+    "python_source",
+    "runtime_outcome",
+    "runtime_identity",
+    "cli_reference",
+    "stage",
+    "status",
+    "reason_code",
+    "primary_action",
+    "details"
+  ],
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "ready"}}, "required": ["status"]},
+      "then": {"properties": {"primary_action": {"type": "null"}}},
+      "else": {"properties": {"primary_action": {"type": "object"}}}
+    }
+  ],
+  "properties": {
+    "protocol": {"const": "leo-ppt-bootstrap/v1"},
+    "schema_version": {"const": 1},
+    "platform": {"enum": ["macos", "windows", "linux"]},
+    "architecture": {"type": "string", "minLength": 1},
+    "python_source": {"enum": ["system", "uv-existing", "uv-bootstrap", "private-python", "unknown"]},
+    "runtime_outcome": {"enum": ["reused", "installed", "updated", "not_ready"]},
+    "runtime_identity": {"type": ["string", "null"]},
+    "cli_reference": {"type": ["string", "null"]},
+    "stage": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ready", "action_required", "blocked"]},
+    "reason_code": {"type": "string", "minLength": 1},
+    "primary_action": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "command", "verification"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "command": {"type": "string", "minLength": 1},
+            "verification": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "details": {"type": "object"}
+  }
+}

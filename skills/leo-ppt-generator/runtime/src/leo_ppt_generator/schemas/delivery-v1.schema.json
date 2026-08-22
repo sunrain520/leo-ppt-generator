@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "leo-ppt-generator/delivery/v1",
+  "$ref": "delivery.schema.json"
+}

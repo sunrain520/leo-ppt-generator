@@ -1,0 +1,21 @@
+--- a/skills/codex-ppt/scripts/remove_chroma_key.py
++++ b/skills/codex-ppt/scripts/remove_chroma_key.py
+@@ -28,16 +28,9 @@ def _die(message: str, code: int = 1) -> None:
+ 
+ 
+ def _dependency_hint(package: str) -> str:
+-    home = Path(os.getenv("CODEX_PPT_HOME", DEFAULT_RUNTIME_HOME)).expanduser()
+-    if os.name == "nt":
+-        python = home / ".venv" / "Scripts" / "python.exe"
+-    else:
+-        python = home / ".venv" / "bin" / "python"
+-    skill_root = Path(__file__).resolve().parents[1]
+     return (
+-        "Install codex-ppt dependencies in the shared runtime first, for example "
+-        f"`python3 {skill_root / 'scripts' / 'codex_ppt_runtime.py'} bootstrap`, "
+-        f"or install {package} directly with `{python} -m pip install {package}`."
++        "Reinstall the leo-ppt-generator managed runtime, or install "
++        f"{package} directly with `{sys.executable} -m pip install {package}`."
+     )
+ 
+ 

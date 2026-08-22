@@ -6,21 +6,11 @@
 .claude/worktrees/
 .qoder/settings.local.json
 
-# local development artifacts
-.DS_Store
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
-build/
-dist/
-*.egg-info/
-
 # spec-first local setup and workflow runtime artifacts
 .spec-first/*.local.yaml
 .spec-first/config.local.yaml
 .spec-first/config/*.json
+.spec-first/cache/
 .spec-first/audits/
 .spec-first/governance/
 .spec-first/app-audit/
@@ -33,3 +23,12 @@ dist/
 graphify-out/
 .graphify/
 # spec-first:end
+
+# Python build and test artifacts
+__pycache__/
+*.py[cod]
+.coverage
+.pytest_cache/
+build/
+dist/
+*.egg-info/

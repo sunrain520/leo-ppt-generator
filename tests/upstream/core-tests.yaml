@@ -1,0 +1,42 @@
+schema_version: 1
+
+suites:
+  codex-ppt-core:
+    upstream: codex-ppt
+    source: clean-export
+    checks:
+      - id: combined-runtime-import
+        command: python tests/integration/u0_isolation.py
+      - id: prompt-preparation
+        command: python <clean-export>/skills/codex-ppt/scripts/prepare_slide_prompts.py --help
+      - id: image-deck-assembly-fixture
+        command: python <clean-export>/skills/codex-ppt/scripts/assemble_ppt.py <fixture-root> u0-image-deck.pptx
+    characterizations:
+      - id: incomplete-deck-currently-accepted
+        command: python <clean-export>/skills/codex-ppt/scripts/assemble_ppt.py <incomplete-fixture-root> u0-incomplete.pptx
+        observed_exit: 0
+        required_follow_up: add a focused failing fixture before the U2 missing-slide patch
+
+  image-to-editable-ppt-core:
+    upstream: image-to-editable-ppt
+    source: clean-export
+    checks:
+      - id: upstream-unittest-suite
+        command: python -m unittest discover -s <clean-export>/tests -v
+        expected_tests: 82
+      - id: package-entrypoint
+        command: editppt --help
+      - id: editable-one-page-fixture
+        command: editppt prepare <fixture.png> --run-dir <run-dir>
+      - id: multi-page-worker-boundary
+        command: editppt run next <multi-page-run>
+        expected_stage: dispatch_pages
+      - id: offline-ocr
+        command: editppt prepare <fixture.png> --run-dir <run-dir>
+        environment:
+          PADDLE_OCR_TOKEN: null
+        expected_backend: builtin-ink
+    characterizations:
+      - id: editable-state-write-not-atomic
+        source: skills/image-to-editable-ppt/cli/editppt/runtime/deck_run_state.py
+        required_follow_up: add locking, temp write, fsync, atomic replace, and directory barrier without changing the state schema

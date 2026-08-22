@@ -1,0 +1,96 @@
+--- a/skills/codex-ppt/scripts/assemble_ppt.py
++++ b/skills/codex-ppt/scripts/assemble_ppt.py
+@@ -214,6 +214,8 @@ def create_presentation(
+     output_path: str,
+     aspect_ratio: str = "16:9",
+     speaker_notes: Optional[Dict[int, str]] = None,
++    fit_policy: str = "contain",
++    allow_lossy_compression: bool = False,
+ ) -> bool:
+     """
+     创建 PowerPoint 演示文稿
+@@ -251,6 +253,8 @@ def create_presentation(
+             prs.slide_height = Inches(5.625)
+ 
+         speaker_notes = speaker_notes or {}
++        if fit_policy not in {"contain", "crop", "stretch"}:
++            raise ValueError("fit_policy must be contain, crop, or stretch")
+ 
+         # 添加每一页幻灯片
+         temp_files_to_cleanup = []
+@@ -259,8 +263,13 @@ def create_presentation(
+                 print(f"警告：图片文件不存在: {image_path}")
+                 continue
+ 
+-            # 压缩图片（如果需要）
+-            compressed_path = compress_image_if_needed(image_path, max_size_mb=2.0)
++            # 默认保留原始像素。压缩必须由调用方显式选择，避免中文小字、细线和
++            # 透明背景在最终 PPTX 中被静默降质。
++            compressed_path = (
++                compress_image_if_needed(image_path, max_size_mb=2.0)
++                if allow_lossy_compression
++                else None
++            )
+ 
+             # 使用压缩后的图片或原图
+             image_to_use = compressed_path if compressed_path else image_path
+@@ -273,15 +282,51 @@ def create_presentation(
+             blank_slide_layout = prs.slide_layouts[6]
+             slide = prs.slides.add_slide(blank_slide_layout)
+ 
+-            # 将图片添加到幻灯片，充满整个页面
+-            slide.shapes.add_picture(
+-                image_to_use,
+-                left=0,
+-                top=0,
+-                width=prs.slide_width,
+-                height=prs.slide_height
+-            )
++            if fit_policy == "stretch":
++                slide.shapes.add_picture(
++                    image_to_use, left=0, top=0,
++                    width=prs.slide_width, height=prs.slide_height
++                )
++            else:
++                from PIL import Image
+ 
++                with Image.open(image_to_use) as source_image:
++                    source_width, source_height = source_image.size
++                slide_ratio = prs.slide_width / prs.slide_height
++                source_ratio = source_width / source_height
++                if fit_policy == "contain":
++                    if source_ratio >= slide_ratio:
++                        width = prs.slide_width
++                        height = int(width / source_ratio)
++                        left = 0
++                        top = int((prs.slide_height - height) / 2)
++                    else:
++                        height = prs.slide_height
++                        width = int(height * source_ratio)
++                        left = int((prs.slide_width - width) / 2)
++                        top = 0
++                    slide.shapes.add_picture(
++                        image_to_use, left=left, top=top, width=width, height=height
++                    )
++                else:
++                    # python-pptx crop_* 使用相对于图像的比例；保留中心区域避免拉伸。
++                    if source_ratio >= slide_ratio:
++                        crop = (1 - slide_ratio / source_ratio) / 2
++                        shape = slide.shapes.add_picture(
++                            image_to_use, left=0, top=0,
++                            width=prs.slide_width, height=prs.slide_height,
++                        )
++                        shape.crop_left = crop
++                        shape.crop_right = crop
++                    else:
++                        crop = (1 - source_ratio / slide_ratio) / 2
++                        shape = slide.shapes.add_picture(
++                            image_to_use, left=0, top=0,
++                            width=prs.slide_width, height=prs.slide_height,
++                        )
++                        shape.crop_top = crop
++                        shape.crop_bottom = crop
++
+             note_text = speaker_notes.get(i)
+             if note_text:
+                 notes_frame = slide.notes_slide.notes_text_frame

@@ -1,0 +1,12 @@
+[run]
+source = skills/leo-ppt-generator/runtime/src/leo_ppt_generator
+omit =
+    */_vendor/*
+    */tests/*
+
+[report]
+exclude_lines =
+    if __name__ == .__main__.:
+    raise NotImplementedError
+show_missing = true
+

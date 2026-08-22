@@ -1,0 +1,4 @@
+interface:
+  display_name: "Leo PPT Generator"
+  short_description: "一站式生成图片式、对象可编辑、全量升级与混合页面 PPTX"
+  default_prompt: "使用 $leo-ppt-generator 将我的材料生成并验证为合适类型的 PPTX。"

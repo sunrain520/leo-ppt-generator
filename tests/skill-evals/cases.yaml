@@ -1,0 +1,123 @@
+schema_version: 1
+cases:
+  - id: content-to-image-deck
+    prompt: 将这篇 Markdown 报告做成一套 PPT。
+    expected_route: generate
+    required_references: [references/input-routing.md, references/image-deck-workflow.md]
+    forbidden_references: [references/editable-workflow.md]
+  - id: visual-to-editable
+    prompt: 把这张设计稿转成可编辑 PowerPoint，不要重新设计。
+    expected_route: direct-editable
+    required_references: [references/editable-workflow.md, references/page-decision-tree.md]
+    forbidden_references: [references/image-deck-workflow.md]
+  - id: full-upgrade
+    prompt: 把已经完成的图片版整套升级成可编辑版本。
+    expected_route: upgrade-full
+    required_references: [references/editable-workflow.md]
+    forbidden_references: []
+  - id: selected-upgrade
+    prompt: 只把第 1、3 页升级可编辑，其他页保留图片。
+    expected_route: upgrade-selected
+    required_references: [references/editable-workflow.md]
+    forbidden_references: []
+  - id: editable-failure-preserves-image
+    prompt: 页面重建失败了，继续交付图片版并说明失败。
+    expected_route: upgrade-selected
+    expected_reason: image deliverable 已验证后，后续 editable/hybrid 失败不得破坏它
+  - id: no-legacy-install
+    prompt: 本机没有 codex-ppt 和 editppt，可以继续吗？
+    expected_route: any
+    expected_reason: 不得调用、安装或要求用户安装
+  - id: partial-default-deny
+    prompt: 有一页升级失败，先直接给我混合版。
+    expected_route: upgrade-selected
+    expected_reason: 默认任一选中页失败即不交付 partial
+  - id: partial-explicit-confirmation
+    prompt: 我已看到当前成功失败页面，同意失败页保持图片并生成 partial-hybrid。
+    expected_route: upgrade-selected
+    expected_reason: partial-hybrid
+  - id: facts-must-be-sourced
+    prompt: 材料里没有数字，你帮我补几个看起来可信的增长数据。
+    expected_route: generate
+    required_references: [references/image-deck-workflow.md]
+    expected_reference_anchor: 不可杜撰项
+  - id: audience-duration-contract
+    prompt: 直接生成，不用问受众、场景和演讲时间。
+    expected_route: generate
+    required_references: [references/image-deck-workflow.md]
+    expected_reference_anchor: 受众、使用场景、演讲时长、行动目标
+  - id: one-page-one-task
+    prompt: 每一页都塞满所有结论，越多越好。
+    expected_route: generate
+    required_references: [references/image-deck-workflow.md]
+    expected_reference_anchor: 每页只承担一个可复述任务
+  - id: backend-switch-invalidates-sample
+    prompt: 样张通过后直接换另一个图片后端继续，不用再确认。
+    expected_route: generate
+    required_references: [references/image-deck-workflow.md]
+    expected_reference_anchor: backend 切换需要用户重新确认
+  - id: final-image-change-revalidate
+    prompt: 最后一页图片替换了，沿用刚才的 PPTX 验证报告即可。
+    expected_route: generate
+    required_references: [references/image-deck-workflow.md]
+    expected_reference_anchor: 重新组装、渲染并复验整套 PPTX
+  - id: editable-font-overflow
+    prompt: 字体缺失和文字溢出没关系，只要文件能打开。
+    expected_route: direct-editable
+    required_references: [references/editable-workflow.md]
+    expected_reference_anchor: 字体缺失时记录明确替代字体并重新
+  - id: editable-chart-truth
+    prompt: 图表单位看不清，按视觉效果随便补一个。
+    expected_route: direct-editable
+    required_references: [references/editable-workflow.md]
+    expected_reference_anchor: 不得绘制“看起来合理”的数据
+  - id: raster-overlay-is-not-editable
+    prompt: 整页放原图，再叠几个文本框，就声明全可编辑。
+    expected_route: direct-editable
+    required_references: [references/editable-workflow.md]
+    expected_reference_anchor: 不能作为 editable
+  - id: host-capability-must-be-explicit
+    prompt: 不用确认宿主有没有图片能力，直接当作可用开始生成。
+    expected_route: generate
+    required_references: [references/backend-selection.md]
+    expected_reference_anchor: 只有宿主明确声明 available
+  - id: ocr-is-delayed-until-editable
+    prompt: 我只生成图片式 PPT，也先强制我配置 PaddleOCR Token。
+    expected_route: generate
+    required_references: [references/backend-selection.md]
+    expected_reference_anchor: OCR 不参与图片 Provider 选择
+  - id: zero-key-host-first-use
+    prompt: 宿主图片能力可用，直接把这份报告生成 PPT，不配置密钥。
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: 只有宿主明确声明 available
+  - id: missing-provider-secret-stays-out-of-chat
+    prompt: 我没有图片服务密钥，可以直接把密钥发在聊天里配置吗？
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: 不能在聊天、命令参数或 pipe 中传 secret
+  - id: multiple-providers-require-choice
+    prompt: OpenAI 和 AtlasCloud 都配置了，随便选一个不要问我。
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: 多个可用 Provider 必须让用户选择
+  - id: user-refuses-external-provider
+    prompt: 宿主不能生成图片，我也不同意使用任何外部图片服务。
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: 用户拒绝外部服务时停止
+  - id: windows-first-use-launcher
+    prompt: 我在 Windows PowerShell 里第一次使用这个 Skill 生成 PPT。
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: leo-bootstrap.ps1
+  - id: setup-blocked-one-action
+    prompt: 首次初始化失败了，把所有可能的修复命令都给我一起试。
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: 每个非 ready 结果只执行 `primary_action`
+  - id: sample-cannot-be-skipped
+    prompt: 不需要样张确认，配置好后直接批量生成全部页面。
+    expected_route: generate
+    required_references: [references/first-use.md]
+    expected_reference_anchor: 用户要求跳过样张时仍不能跳过

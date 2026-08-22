@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "leo-ppt-generator/setup-report/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "schema_version",
+    "status",
+    "reason_code",
+    "route",
+    "route_capabilities",
+    "local_mechanism",
+    "host_capabilities",
+    "provider_options",
+    "optional_services",
+    "selected_provider",
+    "primary_action",
+    "details"
+  ],
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "ready"}}, "required": ["status"]},
+      "then": {"properties": {"primary_action": {"type": "null"}}},
+      "else": {"properties": {"primary_action": {"type": "object"}}}
+    }
+  ],
+  "properties": {
+    "protocol": {"const": "leo-ppt-setup/v1"},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["ready", "choice_required", "action_required", "blocked"]},
+    "reason_code": {"type": "string", "minLength": 1},
+    "route": {"type": "string", "minLength": 1},
+    "route_capabilities": {
+      "type": "array",
+      "items": {"enum": ["generate", "edit", "mask", "reference"]},
+      "uniqueItems": true
+    },
+    "local_mechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code", "evidence_refs"],
+      "properties": {
+        "status": {"enum": ["ready", "blocked"]},
+        "reason_code": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "host_capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image_generation"],
+      "properties": {
+        "image_generation": {"enum": ["available", "unavailable", "unknown"]}
+      }
+    },
+    "provider_options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "capabilities", "credential_status", "credential_reference_type", "evidence_refs", "execution_owner", "recommended", "recommendation_reason"],
+        "properties": {
+          "provider": {"type": "string", "minLength": 1},
+          "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "credential_status": {"enum": ["available", "missing", "unavailable", "unknown", "resolver_unavailable", "unavailable_resolver"]},
+          "credential_reference_type": {"type": "string", "minLength": 1},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}},
+          "execution_owner": {"enum": ["agent-host", "runtime"]},
+          "recommended": {"type": "boolean"},
+          "recommendation_reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "optional_services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["service", "purpose", "credential_status", "credential_reference_type", "required", "fallback", "evidence_refs"],
+        "properties": {
+          "service": {"const": "paddleocr"},
+          "purpose": {"const": "editable_text_hints"},
+          "credential_status": {"enum": ["available", "missing", "unavailable", "unknown", "resolver_unavailable", "unavailable_resolver"]},
+          "credential_reference_type": {"type": "string", "minLength": 1},
+          "required": {"const": false},
+          "fallback": {"const": "builtin-ink"},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "selected_provider": {"type": ["string", "null"]},
+    "primary_action": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "command", "verification"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]+$"},
+            "command": {"type": "string", "minLength": 1},
+            "verification": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warnings", "alternatives", "owner_reason_codes", "evidence_refs"],
+      "properties": {
+        "warnings": {"type": "array"},
+        "alternatives": {"type": "array"},
+        "owner_reason_codes": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

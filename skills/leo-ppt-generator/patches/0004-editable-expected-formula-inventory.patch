@@ -1,0 +1,53 @@
+--- a/skills/image-to-editable-ppt/cli/editppt/runtime/validate_pptx.py
++++ b/skills/image-to-editable-ppt/cli/editppt/runtime/validate_pptx.py
+@@ -268,6 +268,50 @@
+ 
+ def quality_contract_violations(manifest):
+     violations = []
++
++    expected_formulas = manifest.get("expected_formula_inventory")
++    if expected_formulas is not None:
++        if not isinstance(expected_formulas, list):
++            violations.append(
++                {
++                    "field": "expected_formula_inventory",
++                    "reason": "expected formula inventory must be a list",
++                }
++            )
++        else:
++            expected_ids = []
++            for index, item in enumerate(expected_formulas):
++                if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"].strip():
++                    violations.append(
++                        {
++                            "field": f"expected_formula_inventory[{index}]",
++                            "reason": "expected formula inventory entries require a stable id",
++                        }
++                    )
++                    continue
++                if item.get("status", "confirmed") != "confirmed":
++                    violations.append(
++                        {
++                            "field": f"expected_formula_inventory[{index}].status",
++                            "reason": "low-confidence formula candidates require explicit confirmation",
++                        }
++                    )
++                expected_ids.append(item["id"].strip())
++            actual = manifest.get("formula_inventory", [])
++            actual_ids = {
++                item.get("id")
++                for item in actual
++                if isinstance(item, dict) and isinstance(item.get("id"), str)
++            }
++            for formula_id in expected_ids:
++                if formula_id not in actual_ids:
++                    violations.append(
++                        {
++                            "field": "formula_inventory",
++                            "formula_id": formula_id,
++                            "reason": "confirmed source formula is missing from worker output",
++                        }
++                    )
+ 
+     if "visual_inventory" not in manifest:
+         violations.append(

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "leo-ppt-generator/backend-contract/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "backend_kind",
+    "provider",
+    "model",
+    "mode",
+    "credential_source",
+    "selection_source",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "backend_kind": {"enum": ["builtin-imagegen", "openai-compatible", "atlascloud"]},
+    "provider": {"enum": ["builtin-imagegen", "fixture", "openai", "atlascloud"]},
+    "model": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["generate", "edit"]},
+    "credential_source": {"enum": ["host-managed", "environment-reference", "os-store-reference"]},
+    "credential_ref": {"type": "string", "pattern": "^(env|host|keychain):[A-Za-z0-9_.:/-]+$"},
+    "selection_source": {"enum": ["user-confirmed", "fallback-policy"]},
+    "endpoint_origin": {"type": "string", "format": "uri"},
+    "timeouts": {"type": "object"},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generate", "edit", "mask", "max_reference_images", "execution_owner"],
+      "properties": {
+        "generate": {"type": "boolean"},
+        "edit": {"type": "boolean"},
+        "mask": {"type": "boolean"},
+        "max_reference_images": {"type": "integer", "minimum": 0},
+        "execution_owner": {"enum": ["agent-host", "runtime"]}
+      }
+    }
+  }
+}

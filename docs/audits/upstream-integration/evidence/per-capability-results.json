@@ -1,0 +1,490 @@
+{
+  "schema_version": 1,
+  "executed_separately": true,
+  "total": 60,
+  "passed": 60,
+  "failed": 0,
+  "unique_proof_cases": 42,
+  "results": [
+    {
+      "id": "C01",
+      "upstream": "codex-ppt",
+      "capability": "需求理解与页数边界",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/skill-evals/test_skill_contract.py::test_all_behavior_cases_have_route_or_failure_contract_anchors"
+    },
+    {
+      "id": "C02",
+      "upstream": "codex-ppt",
+      "capability": "大纲确认门禁",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/skill-evals/test_skill_contract.py::test_all_behavior_cases_have_route_or_failure_contract_anchors"
+    },
+    {
+      "id": "C03",
+      "upstream": "codex-ppt",
+      "capability": "完整逐页内容确认",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/skill-evals/test_skill_contract.py::test_all_behavior_cases_have_route_or_failure_contract_anchors"
+    },
+    {
+      "id": "C04",
+      "upstream": "codex-ppt",
+      "capability": "视觉方向确认",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_style_contract_requires_visual_confirmation_and_user_style_precedence"
+    },
+    {
+      "id": "C05",
+      "upstream": "codex-ppt",
+      "capability": "12 套内置风格",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_feature_inventory.py::test_all_twelve_builtin_styles_are_integrated"
+    },
+    {
+      "id": "C06",
+      "upstream": "codex-ppt",
+      "capability": "用户自定义风格保存与优先级",
+      "declared_disposition": "adapted",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_style_contract_requires_visual_confirmation_and_user_style_precedence"
+    },
+    {
+      "id": "C07",
+      "upstream": "codex-ppt",
+      "capability": "图片 backend 确认与冻结",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_backend_contract.py::test_backend_contract_validates_declared_capabilities_owner_and_credential_allowlist"
+    },
+    {
+      "id": "C08",
+      "upstream": "codex-ppt",
+      "capability": "单页样张批准与 generation method 继承",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/skill-evals/test_skill_contract.py::test_all_behavior_cases_have_route_or_failure_contract_anchors"
+    },
+    {
+      "id": "C09",
+      "upstream": "codex-ppt",
+      "capability": "required asset 严格映射",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_codex_prompt_asset_dispatch_result_blocker_and_status_flow"
+    },
+    {
+      "id": "C10",
+      "upstream": "codex-ppt",
+      "capability": "逐页 prompt 生成",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_codex_prompt_asset_dispatch_result_blocker_and_status_flow"
+    },
+    {
+      "id": "C11",
+      "upstream": "codex-ppt",
+      "capability": "worker dispatch 与并发槽",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_codex_prompt_asset_dispatch_result_blocker_and_status_flow"
+    },
+    {
+      "id": "C12",
+      "upstream": "codex-ppt",
+      "capability": "dispatch 状态记录",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_codex_prompt_asset_dispatch_result_blocker_and_status_flow"
+    },
+    {
+      "id": "C13",
+      "upstream": "codex-ppt",
+      "capability": "结果记录与 backend provenance 校验",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_codex_prompt_asset_dispatch_result_blocker_and_status_flow"
+    },
+    {
+      "id": "C14",
+      "upstream": "codex-ppt",
+      "capability": "blocker 记录",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_codex_prompt_asset_dispatch_result_blocker_and_status_flow"
+    },
+    {
+      "id": "C15",
+      "upstream": "codex-ppt",
+      "capability": "run status 与缺页拒绝",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_adapters.py::test_image_adapter_rejects_missing_slide_and_builds_complete_fixture"
+    },
+    {
+      "id": "C16",
+      "upstream": "codex-ppt",
+      "capability": "OpenAI-compatible 图片生成",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_openai_compatible_provider_generates_with_forwarded_payload"
+    },
+    {
+      "id": "C17",
+      "upstream": "codex-ppt",
+      "capability": "AtlasCloud generate/edit provider",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_atlascloud_provider_generates_and_edits_with_data_url_references"
+    },
+    {
+      "id": "C18",
+      "upstream": "codex-ppt",
+      "capability": "generate-batch",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_openai_compatible_provider_generate_batch_uses_async_client"
+    },
+    {
+      "id": "C19",
+      "upstream": "codex-ppt",
+      "capability": "图片编辑与多参考图",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_openai_compatible_provider_edits_with_multiple_reference_images"
+    },
+    {
+      "id": "C20",
+      "upstream": "codex-ppt",
+      "capability": "chroma-key 去背",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_chroma_key_removal_makes_key_background_transparent"
+    },
+    {
+      "id": "C21",
+      "upstream": "codex-ppt",
+      "capability": "PPTX 组装",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/e2e/test_offline_routes.py::test_generate_route_offline_fixture[fixture]"
+    },
+    {
+      "id": "C22",
+      "upstream": "codex-ppt",
+      "capability": "speaker notes 写入",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_image_deck_assembly_writes_speaker_notes"
+    },
+    {
+      "id": "C23",
+      "upstream": "codex-ppt",
+      "capability": "runtime bootstrap/config/doctor",
+      "declared_disposition": "replaced",
+      "status": "passed",
+      "proof_case": "tests/integration/test_runtime_manager.py::RuntimeManagerTest::test_installed_bundle_ensure_works_from_unrelated_cwd"
+    },
+    {
+      "id": "C24",
+      "upstream": "codex-ppt",
+      "capability": "最终报告与限制声明",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_delivery_contract_reports_artifacts_validation_and_not_run_limits"
+    },
+    {
+      "id": "C25",
+      "upstream": "codex-ppt",
+      "capability": "默认无损与比例保持组装",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_image_deck_assembly_preserves_source_ratio_by_default"
+    },
+    {
+      "id": "E01",
+      "upstream": "image-to-editable-ppt",
+      "capability": "单图与多图输入规范化",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_stable_workflow_commands.py::test_top_level_editable_prepare_uses_embedded_input_normalizer"
+    },
+    {
+      "id": "E02",
+      "upstream": "image-to-editable-ppt",
+      "capability": "PDF 栅格化与页序",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_pdf_normalization_rasterizes_every_page_in_order"
+    },
+    {
+      "id": "E03",
+      "upstream": "image-to-editable-ppt",
+      "capability": "PPTX 栅格化与 notes 提取",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_image_based_pptx_normalization_preserves_page_order_and_notes"
+    },
+    {
+      "id": "E04",
+      "upstream": "image-to-editable-ppt",
+      "capability": "Office 信任与 active/external fail-closed",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_editable_bridge_rejects_office_before_upstream_parser"
+    },
+    {
+      "id": "E05",
+      "upstream": "image-to-editable-ppt",
+      "capability": "prepare deck/page manifests",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_stable_workflow_commands.py::test_top_level_editable_prepare_uses_embedded_input_normalizer"
+    },
+    {
+      "id": "E06",
+      "upstream": "image-to-editable-ppt",
+      "capability": "离线 builtin-ink hints",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_builtin_ink_hints_measure_local_text_without_network"
+    },
+    {
+      "id": "E07",
+      "upstream": "image-to-editable-ppt",
+      "capability": "PaddleOCR-VL hints",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_paddle_hints_rescale_ocr_boxes_and_preserve_text"
+    },
+    {
+      "id": "E08",
+      "upstream": "image-to-editable-ppt",
+      "capability": "run next/status 与并发槽",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_adapters.py::test_editable_dispatch_request_honors_configured_concurrency"
+    },
+    {
+      "id": "E09",
+      "upstream": "image-to-editable-ppt",
+      "capability": "单页 local claim",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_adapters.py::test_editable_adapter_blocks_multi_page_without_worker"
+    },
+    {
+      "id": "E10",
+      "upstream": "image-to-editable-ppt",
+      "capability": "多页真实 worker 门禁",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_adapters.py::test_editable_adapter_blocks_multi_page_without_worker"
+    },
+    {
+      "id": "E11",
+      "upstream": "image-to-editable-ppt",
+      "capability": "worker prompt 构建",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_page_worker_prompt_builder_uses_current_cli"
+    },
+    {
+      "id": "E12",
+      "upstream": "image-to-editable-ppt",
+      "capability": "dispatch 活跃 lease",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_stable_workflow_commands.py::test_editable_dispatch_record_next_reset_and_finalize_stable_flow"
+    },
+    {
+      "id": "E13",
+      "upstream": "image-to-editable-ppt",
+      "capability": "page record 与顶层 passed 校验",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_adapters.py::test_editable_adapter_rejects_failed_validation_and_non_single_page"
+    },
+    {
+      "id": "E14",
+      "upstream": "image-to-editable-ppt",
+      "capability": "lost worker reset",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_stable_workflow_commands.py::test_editable_dispatch_record_next_reset_and_finalize_stable_flow"
+    },
+    {
+      "id": "E15",
+      "upstream": "image-to-editable-ppt",
+      "capability": "run-level backend contract",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_backend_contract.py::test_backend_contract_validates_declared_capabilities_owner_and_credential_allowlist"
+    },
+    {
+      "id": "E16",
+      "upstream": "image-to-editable-ppt",
+      "capability": "Codex OAuth/OpenAI-compatible generate/edit",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_editable_image_generate_and_edit_dry_runs_preserve_provider_inputs"
+    },
+    {
+      "id": "E17",
+      "upstream": "image-to-editable-ppt",
+      "capability": "图片 import 与 provenance",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_image_import_records_hash_backend_and_provenance"
+    },
+    {
+      "id": "E18",
+      "upstream": "image-to-editable-ppt",
+      "capability": "asset sheet 去背与拆分",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_asset_sheet_processing_removes_key_and_splits_assets"
+    },
+    {
+      "id": "E19",
+      "upstream": "image-to-editable-ppt",
+      "capability": "背景/前景/原生对象决策树",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_page_decision_contract_distinguishes_native_background_and_foreground"
+    },
+    {
+      "id": "E20",
+      "upstream": "image-to-editable-ppt",
+      "capability": "manifest schema 与对象 provenance",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_schemas.py::test_page_artifact_and_delivery_canonical_schemas_are_well_formed"
+    },
+    {
+      "id": "E21",
+      "upstream": "image-to-editable-ppt",
+      "capability": "manifest 构建 page.pptx/preview",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/unit/test_adapters.py::test_editable_adapter_records_and_reverifies_domain_artifacts"
+    },
+    {
+      "id": "E22",
+      "upstream": "image-to-editable-ppt",
+      "capability": "page contact sheet",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_page_contact_sheet_compares_source_and_preview"
+    },
+    {
+      "id": "E23",
+      "upstream": "image-to-editable-ppt",
+      "capability": "page/deck structural validation",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/e2e/test_offline_routes.py::test_direct_editable_route_offline_fixture[fixture]"
+    },
+    {
+      "id": "E24",
+      "upstream": "image-to-editable-ppt",
+      "capability": "LaTeX 公式渲染与 fragment",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_formula_fragment_records_rendered_asset_provenance"
+    },
+    {
+      "id": "E25",
+      "upstream": "image-to-editable-ppt",
+      "capability": "manifest 权威全 deck finalize",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/integration/test_stable_workflow_commands.py::test_editable_dispatch_record_next_reset_and_finalize_stable_flow"
+    },
+    {
+      "id": "E26",
+      "upstream": "image-to-editable-ppt",
+      "capability": "speaker notes hash 保留",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_image_based_pptx_normalization_preserves_page_order_and_notes"
+    },
+    {
+      "id": "E27",
+      "upstream": "image-to-editable-ppt",
+      "capability": "原子状态与并发锁",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/boundary/test_vendor_state.py::test_vendor_locked_state_serializes_concurrent_record_updates"
+    },
+    {
+      "id": "E28",
+      "upstream": "image-to-editable-ppt",
+      "capability": "setup/config/doctor 兼容面",
+      "declared_disposition": "adapted",
+      "status": "passed",
+      "proof_case": "tests/integration/test_upstream_bridge.py::test_legacy_setup_and_raw_config_are_adapted_to_managed_owners"
+    },
+    {
+      "id": "E29",
+      "upstream": "image-to-editable-ppt",
+      "capability": "full editable 交付",
+      "declared_disposition": "integrated",
+      "status": "passed",
+      "proof_case": "tests/e2e/test_offline_routes.py::test_direct_editable_route_offline_fixture[fixture]"
+    },
+    {
+      "id": "E30",
+      "upstream": "image-to-editable-ppt",
+      "capability": "selected-page PageArtifact 交接",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/unit/test_hybrid_assembler.py::test_hybrid_preserves_page_order_modes_and_notes"
+    },
+    {
+      "id": "E31",
+      "upstream": "image-to-editable-ppt",
+      "capability": "已确认公式清单静默遗漏保护",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/upstream/test_capability_behaviors.py::test_confirmed_source_formula_inventory_cannot_be_omitted"
+    },
+    {
+      "id": "X01",
+      "upstream": "combined",
+      "capability": "image deck 整套升级 editable",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/e2e/test_offline_routes.py::test_upgrade_full_preserves_image_delivery_if_editable_stage_fails[fixture]"
+    },
+    {
+      "id": "X02",
+      "upstream": "combined",
+      "capability": "selected-page hybrid",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/unit/test_hybrid_assembler.py::test_hybrid_preserves_page_order_modes_and_notes"
+    },
+    {
+      "id": "X03",
+      "upstream": "combined",
+      "capability": "partial-hybrid 显式确认",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/unit/test_hybrid_assembler.py::test_partial_hybrid_requires_confirmation_bound_to_current_failure_set"
+    },
+    {
+      "id": "X04",
+      "upstream": "combined",
+      "capability": "单一 runtime/CLI/Skill",
+      "declared_disposition": "enhanced",
+      "status": "passed",
+      "proof_case": "tests/integration/test_runtime_manager.py::RuntimeManagerTest::test_installed_bundle_ensure_works_from_unrelated_cwd"
+    }
+  ]
+}

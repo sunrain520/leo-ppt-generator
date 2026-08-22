@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "leo-ppt-generator/page-artifact/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "page_id", "mode", "source_path", "source_sha256", "artifact_path", "artifact_sha256", "validation_path", "manifest_path", "manifest_sha256", "notes", "width", "height"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "page_id": {"type": "string", "pattern": "^page_[0-9]{3,}$"},
+    "mode": {"enum": ["image", "editable"]},
+    "source_path": {"type": "string", "minLength": 1},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "artifact_path": {"type": "string", "minLength": 1},
+    "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "validation_path": {"type": ["string", "null"]},
+    "validation_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "manifest_path": {"type": ["string", "null"]},
+    "manifest_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "notes": {"type": "string"},
+    "width": {"type": "integer", "minimum": 1},
+    "height": {"type": "integer", "minimum": 1}
+  }
+}

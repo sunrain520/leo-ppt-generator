@@ -1,0 +1,55 @@
+--- a/skills/image-to-editable-ppt/cli/editppt/runtime/deck_run_state.py
++++ b/skills/image-to-editable-ppt/cli/editppt/runtime/deck_run_state.py
+@@ -1,9 +1,14 @@
+ import hashlib
+ import json
++import os
++import tempfile
++from contextlib import contextmanager
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
++from filelock import FileLock
+ 
++
+ ACTIVE_PAGE_STATUSES = {"dispatched"}
+ DISPATCHABLE_PAGE_STATUSES = {"pending"}
+ DEFAULT_MAX_CONCURRENT_PAGES = 6
+@@ -25,9 +30,36 @@ def read_json(path, default=None):
+ def write_json(path, data):
+     path = Path(path)
+     path.parent.mkdir(parents=True, exist_ok=True)
+-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
++    body = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
++    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
++    try:
++        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
++            handle.write(body)
++            handle.flush()
++            os.fsync(handle.fileno())
++        os.replace(temporary, path)
++        directory_fd = os.open(path.parent, os.O_RDONLY)
++        try:
++            os.fsync(directory_fd)
++        finally:
++            os.close(directory_fd)
++    finally:
++        if os.path.exists(temporary):
++            os.unlink(temporary)
+ 
+ 
++@contextmanager
++def locked_json(path, default=None, expected_revision=None):
++    path = Path(path)
++    with FileLock(str(path.with_name(f".{path.name}.lock"))):
++        data = read_json(path, default=default)
++        if expected_revision is not None and data.get("revision", 0) != expected_revision:
++            raise ValueError("vendor_revision_conflict")
++        yield data
++        data["revision"] = data.get("revision", 0) + 1
++        write_json(path, data)
++
++
+ def sha256_file(path):
+     digest = hashlib.sha256()
+     with Path(path).open("rb") as handle:

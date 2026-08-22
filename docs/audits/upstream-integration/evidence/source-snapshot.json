@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-21T17:03:52+08:00",
+  "current_project": {
+    "repository": "leo-ppt-generator",
+    "head": "2230fa83bf358a64386d21b97765c5421d4537df",
+    "dirty": true,
+    "binding": "current dirty worktree"
+  },
+  "upstreams": {
+    "codex-ppt": {
+      "head": "f2ed80372f65bb05fe62dd07979b239a17ac065d",
+      "expected_head": "f2ed80372f65bb05fe62dd07979b239a17ac065d",
+      "dirty": true,
+      "dirty_scope_observed": "repository governance and untracked execution-flow documentation; imported source is evaluated from the pinned commit"
+    },
+    "image-to-editable-ppt": {
+      "head": "fb869763127fd31ba7288d905671ffc4ea542f60",
+      "expected_head": "fb869763127fd31ba7288d905671ffc4ea542f60",
+      "dirty": true,
+      "dirty_scope_observed": "repository governance and an untracked cli lock; imported source is evaluated from the pinned commit"
+    }
+  },
+  "limitations": [
+    "The current project worktree changed during the audit; final conclusions bind to the final re-read snapshot, not an immutable commit.",
+    "Two unrelated pre-existing test files changed concurrently during remediation; they were not overwritten, and the full suite was rerun after their last observed modification.",
+    "No credential values, authentication file contents, private headers, or raw provider logs were captured."
+  ]
+}

@@ -1,0 +1,76 @@
+schema_version: 1
+verified_at: "2026-08-21"
+license_policy: preserve-upstream-license-and-notices
+
+upstreams:
+  codex-ppt:
+    repository: https://github.com/ningzimu/codex-ppt-skill.git
+    commit: f2ed80372f65bb05fe62dd07979b239a17ac065d
+    repository_tree: 551cb696b09ead91df2ee42ce353397f00753c33
+    import_tree: a7ecf0863b03356c447471a9678973ae26f01078
+    clean_export_sha256: e96d8134d616e8f19570f0b645a67c825628ae85122e016c99b5826ce78708c6
+    license:
+      spdx: MIT
+      file: LICENSE
+      blob: f769fc5582d3f8ee0f9eb4da5fbf95ac85834c17
+      copyright: Copyright (c) 2026 ningzimu
+    import_set:
+      - LICENSE
+      - skills/codex-ppt/SKILL.md
+      - skills/codex-ppt/requirements.txt
+      - skills/codex-ppt/docs/**
+      - skills/codex-ppt/prompts/**
+      - skills/codex-ppt/references/**
+      - skills/codex-ppt/scripts/**
+    retained_contracts:
+      - slide job preparation and per-slide prompt contract
+      - slide dispatch/result/blocker state and concurrency limit
+      - backend provenance and generated-image-only requirement
+      - missing-slide refusal before PPTX assembly
+      - speaker-notes assembly
+    patches:
+      - patches/0001-codex-state-directory-barrier.patch
+      - patches/0003-codex-assembly-fidelity.patch
+      - patches/0005-codex-chroma-key-dependency-hint.patch
+    integration_adaptations:
+      - patches/assembly-and-office-boundaries.md
+    regression:
+      manifest: tests/upstream/core-tests.yaml
+      suite: codex-ppt-core
+
+  image-to-editable-ppt:
+    repository: https://github.com/ningzimu/image-to-editable-ppt-skill.git
+    commit: fb869763127fd31ba7288d905671ffc4ea542f60
+    repository_tree: 7723bbb98311e938eb1fd53419f955eeae1eb933
+    import_tree: 5dafb6e837a82fff64a1c58efaf43792e53751b7
+    upstream_tests_tree: e919ded690ea85046d873cc19a5867ef566fc8b3
+    clean_export_sha256: f15682824f0fdaac22734be7a2d2399fd31b50a6db257b52eacfb92d7a279823
+    license:
+      spdx: MIT
+      file: LICENSE
+      blob: f769fc5582d3f8ee0f9eb4da5fbf95ac85834c17
+      copyright: Copyright (c) 2026 ningzimu
+    import_set:
+      - LICENSE
+      - skills/image-to-editable-ppt/SKILL.md
+      - skills/image-to-editable-ppt/agents/openai.yaml
+      - skills/image-to-editable-ppt/cli/**
+      - skills/image-to-editable-ppt/prompts/**
+      - skills/image-to-editable-ppt/references/**
+      - skills/image-to-editable-ppt/scripts/build-page-worker-prompt.py
+      - tests/**
+    retained_contracts:
+      - deterministic input normalization and offline text hints
+      - page worker prompt and manifest contract
+      - page dispatch/record/reset/finalize state contract
+      - object-level PPTX build and structural validation
+      - multi-page worker requirement and single-page local claim
+    patches:
+      - patches/0002-editable-state-atomic-lock.patch
+      - patches/0004-editable-expected-formula-inventory.patch
+      - patches/0006-editable-ppt-dpi-parameter.patch
+    integration_adaptations:
+      - patches/assembly-and-office-boundaries.md
+    regression:
+      manifest: tests/upstream/core-tests.yaml
+      suite: image-to-editable-ppt-core

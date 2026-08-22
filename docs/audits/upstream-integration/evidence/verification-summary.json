@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "results": {
+    "full_pytest": {"status": "passed", "passed": 231, "failed": 0, "coverage_percent": 87.14},
+    "declared_capability_proofs": {"status": "passed", "passed": 60, "failed": 0, "executed_separately": true},
+    "unique_capability_proof_cases": 42,
+    "editable_upstream_regression": {"status": "passed", "passed": 82, "failed": 0},
+    "u0_clean_export_isolation": {"status": "passed", "passed": 7, "failed": 0, "skipped": 0},
+    "vendor_sync": {"status": "passed", "files": 46},
+    "skill_validation": {"status": "passed"},
+    "runtime_build": {"status": "passed", "artifacts": ["sdist", "wheel"]},
+    "installed_built_wheel_four_routes": {"status": "passed-required-pytest", "pytest_cases": 1, "routes": 4, "replay": "passed", "build_source": "temporary-clean-copy", "install_target": "absolute-wheel-path", "system_site_packages": false},
+    "real_image_provider": {"status": "not-run", "reason": "missing_credential"},
+    "online_paddle_ocr": {"status": "not-run", "reason": "missing_credential"},
+    "microsoft_powerpoint": {"status": "not-run", "reason": "missing_application"},
+    "human_visual_acceptance": {"status": "not-run", "reason": "owner_acceptance_required"},
+    "real_multi_page_worker": {"status": "not-run", "reason": "dispatch_authorization_missing"}
+  },
+  "redaction": {
+    "credential_values_captured": false,
+    "authentication_file_contents_captured": false,
+    "raw_private_headers_captured": false,
+    "raw_provider_logs_captured": false
+  }
+}

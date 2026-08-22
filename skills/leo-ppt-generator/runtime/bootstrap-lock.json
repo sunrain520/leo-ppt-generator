@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "python_version": "3.12.13",
+  "uv_version": "0.11.19",
+  "artifacts": {
+    "macos-arm64": {
+      "url": "https://github.com/astral-sh/uv/releases/download/0.11.19/uv-aarch64-apple-darwin.tar.gz",
+      "sha256": "d8f59c38e8c4168ee468d423cd63184be12fa6995a4283d41ee1a14d003c9453",
+      "max_bytes": 25000000,
+      "archive": "tar.gz",
+      "executable": "uv-aarch64-apple-darwin/uv"
+    },
+    "windows-x64": {
+      "url": "https://github.com/astral-sh/uv/releases/download/0.11.19/uv-x86_64-pc-windows-msvc.zip",
+      "sha256": "1665fc8e37b5d70a134820d6d7891747471a2ac8bc940ee7af0b69fd03b28d61",
+      "max_bytes": 28000000,
+      "archive": "zip",
+      "executable": "uv-x86_64-pc-windows-msvc/uv.exe"
+    }
+  }
+}

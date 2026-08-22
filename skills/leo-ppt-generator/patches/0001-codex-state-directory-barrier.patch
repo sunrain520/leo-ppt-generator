@@ -1,0 +1,16 @@
+--- a/skills/codex-ppt/scripts/slide_run_state.py
++++ b/skills/codex-ppt/scripts/slide_run_state.py
+@@ -45,6 +45,13 @@ def write_json(path: Path, data: Any) -> None:
+             handle.flush()
+             os.fsync(handle.fileno())
+         os.replace(temp_name, path)
++        # 本地 durability patch：replace 成功后还需同步父目录项，才构成
++        # durable checkpoint。
++        directory_fd = os.open(path.parent, os.O_RDONLY)
++        try:
++            os.fsync(directory_fd)
++        finally:
++            os.close(directory_fd)
+     finally:
+         if os.path.exists(temp_name):
+             os.unlink(temp_name)

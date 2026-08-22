@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "audited_inventory_entries": 60,
+  "unique_proof_cases": 42,
+  "independent_baseline_result": "inventory_complete_for_current_deterministic_scope",
+  "confirmed_source_files": {
+    "codex_ppt_python": 15,
+    "editable_ppt_python": 28,
+    "total_upstream_python": 43,
+    "exact": 39,
+    "patched": 4,
+    "bundle_vendor_files": 46
+  },
+  "patched_files": [
+    "codex-ppt:slide_run_state.py",
+    "codex-ppt:assemble_ppt.py",
+    "image-to-editable-ppt:runtime/deck_run_state.py",
+    "image-to-editable-ppt:runtime/validate_pptx.py"
+  ],
+  "missing_capability_entries": [],
+  "misclassified_or_underbound_entries": [],
+  "stale_claims": [],
+  "resolved_findings": [
+    {
+      "finding": "P1-01",
+      "resolution": "E31 records confirmed source formula inventory omission prevention with its dedicated proof."
+    },
+    {
+      "finding": "P2-02",
+      "resolution": "C21 owns base PPTX assembly; C25 separately records default lossless aspect-ratio-preserving assembly."
+    },
+    {
+      "finding": "P2-03",
+      "resolution": "Governance discloses 60 mappings, 42 unique proof cases, and a maximum reuse count of 6."
+    }
+  ]
+}
