@@ -29,7 +29,11 @@ def doctor_report(route: str | None) -> dict[str, Any]:
 
 
 def _route_capabilities(route: str) -> list[str]:
-    return ["generate"] if route == "generate" else ["edit"]
+    """从唯一 Route owner 派生基础能力；不在此维护第二份映射。"""
+
+    from .application.routes import route_definition
+
+    return sorted(item.value for item in route_definition(route).base_capabilities)
 
 
 def _provider_options(
@@ -44,6 +48,9 @@ def _provider_options(
     references = doctor.get("credential_references", {})
     if not isinstance(references, dict):
         references = {}
+    profiles = doctor.get("provider_profiles", {})
+    if not isinstance(profiles, dict):
+        profiles = {}
     for backend in registry.candidates(required):
         provider = backend.name
         if provider == "builtin-imagegen" and host_imagegen == "unavailable":
@@ -52,6 +59,10 @@ def _provider_options(
         if not isinstance(credential, dict):
             credential = {}
         credential_status = str(credential.get("status", "unknown"))
+        profile_status = "not_required"
+        if provider == "openai-compatible":
+            profile = profiles.get(provider, {})
+            profile_status = str(profile.get("status", "missing")) if isinstance(profile, dict) else "missing"
         if provider == "builtin-imagegen":
             credential_status = host_imagegen
         evidence_refs = credential.get("evidence_refs", doctor.get("evidence_refs", []))
@@ -71,6 +82,8 @@ def _provider_options(
                         else "unknown",
                     )
                 ),
+                "configuration_status": profile_status,
+                "ready": credential_status == "available" and profile_status in {"available", "not_required"},
                 "evidence_refs": [str(value) for value in evidence_refs],
                 "execution_owner": (
                     "agent-host"
@@ -80,14 +93,14 @@ def _provider_options(
                 "recommended": (
                     provider == "builtin-imagegen" and host_imagegen == "available"
                 )
-                or (is_confirmed and credential_status == "available"),
+                or (is_confirmed and credential_status == "available" and profile_status in {"available", "not_required"}),
                 "recommendation_reason": (
                     "host_capability_confirmed"
                     if provider == "builtin-imagegen" and host_imagegen == "available"
                     else "user_confirmed"
-                    if is_confirmed and credential_status == "available"
+                    if is_confirmed and credential_status == "available" and profile_status in {"available", "not_required"}
                     else "credential_available"
-                    if credential_status == "available"
+                    if credential_status == "available" and profile_status in {"available", "not_required"}
                     else "not_ready"
                 ),
             }
@@ -96,7 +109,7 @@ def _provider_options(
         options,
         key=lambda option: (
             0 if option["recommended"] else 1,
-            0 if option["credential_status"] == "available" else 1,
+            0 if option["ready"] else 1,
         ),
     )
 
@@ -295,6 +308,13 @@ def build_setup_report(
                 reason_code=reason,
                 replacements=selected_replacements,
             )
+        if selected["configuration_status"] != "not_required" and selected["configuration_status"] != "available":
+            return _set_outcome(
+                report,
+                status="action_required",
+                reason_code="openai_compatible_configuration_required",
+                replacements=replacements,
+            )
         if selected["credential_status"] != "available":
             reason = (
                 "host_image_capability_unknown"
@@ -337,7 +357,7 @@ def build_setup_report(
         option
         for option in options
         if option["provider"] != "builtin-imagegen"
-        and option["credential_status"] == "available"
+        and option["ready"]
     ]
     if not external:
         references = doctor.get("credential_references", {})
@@ -347,7 +367,7 @@ def build_setup_report(
             available_but_incapable = [
                 provider
                 for provider, value in references.items()
-                if provider in {"openai", "atlascloud"}
+                if provider in {"openai", "openai-compatible", "atlascloud"}
                 and provider not in capable
                 and isinstance(value, dict)
                 and value.get("status") == "available"
@@ -384,7 +404,7 @@ def build_setup_report(
         reason_code=reason,
         replacements={
             **replacements,
-            "provider": external[0]["provider"] if len(external) == 1 else "openai|atlascloud",
+            "provider": external[0]["provider"] if len(external) == 1 else "openai|openai-compatible|atlascloud",
         },
     )
 

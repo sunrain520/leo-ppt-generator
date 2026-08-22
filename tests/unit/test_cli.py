@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from leo_ppt_generator import cli
+from leo_ppt_generator.credentials import CredentialManager, UnsupportedCredentialStore
 from PIL import Image
 
 from tests.backend_fixtures import backend_contract
@@ -91,6 +92,9 @@ def test_doctor_separates_route_readiness_layers(route, office_status, monkeypat
 def test_backend_create_and_validate_reports_contract_and_credential_readiness(
     tmp_path, monkeypatch
 ):
+    monkeypatch.setattr(
+        cli, "credential_manager", lambda: CredentialManager(UnsupportedCredentialStore(), {})
+    )
     output = tmp_path / "backend.json"
     created = cli.dispatch(
         parse(
@@ -132,6 +136,29 @@ def test_backend_create_and_validate_reports_contract_and_credential_readiness(
                 str(output),
             )
         )
+
+
+def test_openai_compatible_profile_is_frozen_into_backend_contract(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "test-environment-reference")
+    configured = cli.dispatch(
+        parse(
+            "provider", "configure", "--provider", "openai-compatible",
+            "--base-url", "https://proxy.example.com", "--model", "proxy-image-model",
+        )
+    )
+    assert configured["reason_code"] == "provider_profile_configured"
+    output = tmp_path / "compatible.json"
+    created = cli.dispatch(
+        parse(
+            "backend", "create", "--provider", "openai-compatible", "--mode", "generate",
+            "--output", str(output),
+        )
+    )
+    assert created["contract"]["endpoint_origin"] == "https://proxy.example.com"
+    assert created["contract"]["model"] == "proxy-image-model"
+    assert created["contract"]["credential_ref"] == "env:OPENAI_COMPATIBLE_API_KEY"
 
 
 def test_run_cli_create_advance_next_status_diagnose_cancel(tmp_path):
@@ -281,3 +308,304 @@ def test_image_editable_delivery_and_cleanup_cli(tmp_path):
     preview_path.write_text(json.dumps(preview), encoding="utf-8")
     applied = cli.dispatch(parse("cleanup", "--run-dir", str(run), "--apply", str(preview_path)))
     assert applied["receipt"]["removed"] == ["tmp/file.tmp"]
+
+
+def test_auth_cli_rejects_plaintext_api_key_argument():
+    with pytest.raises(SystemExit):
+        parse("auth", "add", "--provider", "openai", "--api-key", "canary-secret")
+
+
+def test_config_without_subcommand_is_the_wizard_entrypoint():
+    args = parse("config")
+
+    assert args.command == "config"
+    assert args.config_command is None
+
+
+class _ConfigDispatchReport:
+    class status:
+        value = "configured_unverified"
+
+    reason_code = "provider_verification_not_run"
+
+    def to_dict(self):
+        return {"status": self.status.value}
+
+
+def test_config_change_dispatches_to_service_without_route_argument(monkeypatch):
+    class Service:
+        def __init__(self):
+            self.request = None
+            self.selected_provider = None
+            self.operation_id = None
+
+        def change(self, request, *, selected_provider, operation_id):
+            self.request = request
+            self.selected_provider = selected_provider
+            self.operation_id = operation_id
+            return _ConfigDispatchReport()
+
+    service = Service()
+    monkeypatch.setattr(cli, "_config_service", lambda: service)
+    service.config_store = type(
+        "Store",
+        (),
+        {"read": lambda self: type("Snapshot", (), {"values": {"provider_profiles": {"openai": {}}}})()},
+    )()
+
+    result = cli.dispatch(parse("config", "change", "--provider", "openai"))
+
+    assert service.request.route is None
+    assert service.selected_provider == "openai"
+    assert service.operation_id == "config-change-openai"
+    assert result["status"] == "configured_unverified"
+
+
+def test_config_repair_dispatches_to_service_repair(monkeypatch):
+    class Service:
+        def __init__(self):
+            self.request = None
+
+        def repair(self, request):
+            self.request = request
+            return _ConfigDispatchReport()
+
+    service = Service()
+    monkeypatch.setattr(cli, "_config_service", lambda *args: service)
+
+    result = cli.dispatch(parse("config", "repair", "--route", "generate"))
+
+    assert service.request.route == "generate"
+    assert result["status"] == "configured_unverified"
+
+
+def test_config_change_without_provider_enters_wizard(monkeypatch):
+    class Wizard:
+        def run(self, request):
+            self.request = request
+            return type("Result", (), {"report": _ConfigDispatchReport()})()
+
+    wizard = Wizard()
+    monkeypatch.setattr(cli, "_config_wizard", lambda *_: wizard)
+
+    result = cli.dispatch(parse("config", "change"))
+
+    assert wizard.request.route is None
+    assert result["status"] == "configured_unverified"
+
+
+
+def test_config_change_missing_profile_returns_blocked_json(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+
+    exit_code = cli.main(["config", "change", "--provider", "openai", "--json"])
+
+    response = json.loads(capsys.readouterr().err)
+    assert exit_code == 2
+    assert response["status"] == "blocked"
+    assert response["reason_code"] == "credential_input_channel_unavailable"
+
+
+def test_config_without_subcommand_dispatches_to_wizard(monkeypatch):
+    class Wizard:
+        def __init__(self):
+            self.request = None
+
+        def run(self, request):
+            self.request = request
+            return type("Result", (), {"report": _ConfigDispatchReport()})()
+
+    wizard = Wizard()
+    monkeypatch.setattr(cli, "_config_wizard", lambda: wizard)
+
+    result = cli.dispatch(parse("config"))
+
+    assert wizard.request.route is None
+    assert result["status"] == "configured_unverified"
+
+
+def test_resolve_cli_path_uses_executable_posix_sibling(tmp_path, monkeypatch):
+    if cli.os.name == "nt":
+        pytest.skip("POSIX console-script permission semantics")
+    python = tmp_path / "venv" / "bin" / "python"
+    script = python.with_name("leo-ppt")
+    script.parent.mkdir(parents=True)
+    python.write_text("python", encoding="utf-8")
+    script.write_text("#!/bin/sh\n", encoding="utf-8")
+    script.chmod(0o755)
+    monkeypatch.setattr(cli.sys, "executable", str(python))
+    monkeypatch.delenv("LEO_PPT_CLI_PROG", raising=False)
+    monkeypatch.setattr(cli.shutil, "which", lambda _name: None)
+
+    assert cli._resolve_cli_path(platform_name="posix") == str(script.resolve())
+
+
+def test_resolve_cli_path_rejects_non_executable_posix_sibling(tmp_path, monkeypatch):
+    if cli.os.name == "nt":
+        pytest.skip("POSIX console-script permission semantics")
+    python = tmp_path / "venv" / "bin" / "python"
+    script = python.with_name("leo-ppt")
+    script.parent.mkdir(parents=True)
+    python.write_text("python", encoding="utf-8")
+    script.write_text("#!/bin/sh\n", encoding="utf-8")
+    script.chmod(0o644)
+    monkeypatch.setattr(cli.sys, "executable", str(python))
+    monkeypatch.delenv("LEO_PPT_CLI_PROG", raising=False)
+    monkeypatch.setattr(cli.shutil, "which", lambda _name: None)
+
+    assert cli._resolve_cli_path(platform_name="posix") is None
+
+
+def test_resolve_cli_path_uses_windows_exe_sibling(tmp_path, monkeypatch):
+    python = tmp_path / "venv" / "Scripts" / "python.exe"
+    script = python.with_name("leo-ppt.exe")
+    script.parent.mkdir(parents=True)
+    python.write_text("python", encoding="utf-8")
+    script.write_text("console script", encoding="utf-8")
+    monkeypatch.setattr(cli.sys, "executable", str(python))
+    monkeypatch.delenv("LEO_PPT_CLI_PROG", raising=False)
+    monkeypatch.setattr(cli.shutil, "which", lambda _name: None)
+
+    assert cli._resolve_cli_path(platform_name="nt") == str(script.resolve())
+
+
+def test_config_status_uses_module_launcher_without_console_script(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+    for name in (
+        "OPENAI_API_KEY",
+        "OPENAI_COMPATIBLE_API_KEY",
+        "ATLASCLOUD_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(cli, "_resolve_cli_path", lambda: None)
+
+    result = cli.dispatch(parse("config", "status", "--json"))
+
+    action = result["report"]["primary_action"]
+    assert action is not None
+    assert action["kind"] == "run_cli"
+    executable = str(Path(sys.executable).resolve())
+    assert Path(executable).is_file()
+    if cli.os.name == "nt":
+        prefix = (
+            f"& '{executable.replace(chr(39), chr(39) * 2)}' "
+            "'-m' 'leo_ppt_generator' 'config'"
+        )
+        assert action["command"].startswith(prefix)
+        assert action["command"][len(prefix) :] in {
+            "",
+            " 'change'",
+            " 'repair'",
+            " 'verify'",
+        }
+    else:
+        tokens = __import__("shlex").split(action["command"])
+        assert tokens[:4] == [
+            executable,
+            "-m",
+            "leo_ppt_generator",
+            "config",
+        ]
+        assert tokens[4:] in ([], ["change"], ["repair"], ["verify"])
+
+
+def test_version_command_has_human_and_machine_contract(capsys):
+    report = cli.dispatch(parse("version", "--json"))
+    assert report == {
+        "protocol": "leo-ppt-version/v1",
+        "schema_version": 1,
+        "status": "ready",
+        "reason_code": "version_reported",
+        "package_version": cli.__version__,
+        "runtime_version": cli.__version__,
+        "runtime_identity": report["runtime_identity"],
+        "install_channel": report["install_channel"],
+        "config_schema_version": 1,
+        "setup_schema_version": 1,
+        "cli_path": report["cli_path"],
+    }
+    assert cli.main(["version"]) == 0
+    assert f"leo-ppt {cli.__version__}" in capsys.readouterr().out
+
+
+def test_setup_and_config_provider_share_openai_compatible_choice():
+    setup = parse(
+        "setup",
+        "--route",
+        "generate",
+        "--provider",
+        "openai-compatible",
+    )
+    configured = parse(
+        "config",
+        "provider",
+        "configure",
+        "--provider",
+        "openai-compatible",
+    )
+    assert setup.provider == configured.provider == "openai-compatible"
+
+
+def test_config_provider_list_uses_registry_and_local_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+    for name in ("OPENAI_API_KEY", "OPENAI_COMPATIBLE_API_KEY", "ATLASCLOUD_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+    result = cli.dispatch(parse("config", "provider", "list", "--json"))
+
+    assert result["reason_code"] == "provider_listed"
+    assert [item["provider"] for item in result["providers"]] == [
+        "openai",
+        "openai-compatible",
+        "atlascloud",
+    ]
+    assert all(item["selected"] is False for item in result["providers"])
+
+
+def test_config_verify_requires_explicit_consent(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+    result = cli.dispatch(parse("config", "verify", "--json"))
+    assert result["status"] == "action_required"
+    assert result["reason_code"] == "paid_verification_consent_required"
+
+
+def test_update_without_yes_is_preview_and_confirmation(monkeypatch, tmp_path):
+    manager = tmp_path / "runtime_manager.py"
+    manager.write_text("# manager", encoding="utf-8")
+    bundle = tmp_path / "leo-ppt-generator"
+    bundle.mkdir()
+    monkeypatch.setattr(cli, "_runtime_manager_metadata", lambda: (manager, bundle))
+    payload = {
+        "protocol": "leo-ppt-update/v1",
+        "status": "update_available",
+        "reason_code": "release_update_available",
+    }
+    observed = {}
+
+    def run(command, **kwargs):
+        observed["command"] = command
+        return type("Result", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})()
+
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    result = cli.dispatch(parse("update", "--version", "v1.2.3", "--json"))
+    assert observed["command"][-3:] == ["check", "--ref", "v1.2.3"]
+    assert result["status"] == "action_required"
+    assert result["reason_code"] == "update_confirmation_required"
+
+
+def test_rollback_delegates_to_runtime_manager(monkeypatch, tmp_path):
+    manager = tmp_path / "runtime_manager.py"
+    manager.write_text("# manager", encoding="utf-8")
+    bundle = tmp_path / "leo-ppt-generator"
+    bundle.mkdir()
+    monkeypatch.setattr(cli, "_runtime_manager_metadata", lambda: (manager, bundle))
+    payload = {"status": "ready", "reason_code": "runtime_rolled_back"}
+
+    def run(command, **kwargs):
+        assert command[-1] == "rollback"
+        return type("Result", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})()
+
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    result = cli.dispatch(parse("rollback", "--json"))
+    assert result["status"] == "ready"
+    assert result["reason_code"] == "runtime_rolled_back"

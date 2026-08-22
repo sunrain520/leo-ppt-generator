@@ -10,7 +10,9 @@ stage=""
 lock_dir=""
 
 stage_event() {
-  printf 'bootstrap[%s]: %s\n' "$1" "$2" >&2
+  if [[ "${LEO_PPT_BOOTSTRAP_QUIET:-0}" != "1" ]]; then
+    printf 'bootstrap[%s]: %s\n' "$1" "$2" >&2
+  fi
 }
 
 fail_bootstrap() {

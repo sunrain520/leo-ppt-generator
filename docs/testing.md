@@ -29,6 +29,20 @@
   升级备份、失败不替换、通用 Agent 发现目录，以及缓存/`third_party` 拒绝或排除。
 - Skill 合同覆盖 25 个正反向用户意图 case、渐进 reference 与旧入口禁用；静态 eval
   不能替代真实模型行为 eval。
+- 统一配置覆盖 `config`、`status`、`verify`、`repair`、`change` 的协议与人类输出：
+  `status` 零 Provider 调用；配置、验证、执行资格和安装就绪度分层；`ready` 必须按当前
+  route 的能力级 receipt 或宿主现场能力计算，`configured_unverified` 仍允许开始任务。
+- 费用与恢复覆盖显式同意、默认拒绝、超时/取消不触发 smoke、Provider policy
+  `unknown` fail-closed、惰性验证的 single-flight、等待者共享结果、非幂等结果未知不
+  自动重试，以及业务图片成功但 receipt 原子写入失败时只修复本地证据、不重复调用
+  Provider。
+- 凭据覆盖真实 TTY 隐藏输入、既有环境变量引用、用户显式 `--key-stdin`、Keychain、
+  DPAPI 和 ACL；明文参数、聊天、普通 stdin 隐式读取、日志、run、receipt 与配置文件
+  均不得成为密钥通道。
+- 真实 Provider、在线 OCR、宿主图片能力、Windows NTFS/DPAPI、Office viewer、
+  PowerPoint 与人工视觉均使用独立现场 receipt。fixture、mock、CLI help、静态 eval 或
+  本地 `config status` 只能验证对应层，不能补偿这些现场样本，也不能计入首次真实任务
+  成功率。
 
 ## 墨菲定律故障驱动模型
 
@@ -108,7 +122,8 @@ HOME、配置目录、runtime home、缓存和目标目录，并关闭四 route 
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=skills/leo-ppt-generator/runtime/src \
-  uv run --with pytest --with pytest-cov --with pillow --with python-pptx \
+  uv run --with pytest --with pytest-cov --with "Hypothesis==6.165.5" \
+  --with pillow --with python-pptx \
   --with filelock --with pyyaml --with pymupdf --with numpy --with openai \
   --with requests --with build --with jsonschema \
   python -m pytest tests -q --cov=leo_ppt_generator \
@@ -128,7 +143,7 @@ uv pip install --dry-run --python-version 3.12 \
   --target <temporary-directory> \
   -r skills/leo-ppt-generator/runtime/constraints/py312-win32-amd64.txt
 
-PYTHONDONTWRITEBYTECODE=1 uv run --with pytest \
+PYTHONDONTWRITEBYTECODE=1 uv run --with pytest --with "Hypothesis==6.165.5" \
   pytest -q tests/release/test_installer.py tests/integration/test_runtime_manager.py
 ```
 

@@ -57,13 +57,19 @@
 | `credential_reference_invalid` | 凭据引用不是允许的 `env:`、`host:` 或 `keychain:` 形式 | 是 | 使用 provider allowlist 中的引用，不写入原始凭据 |
 | `credential_reference_unavailable` | 声明的凭据引用当前不可解析 | 是 | 在宿主注入对应环境变量或启用明确 resolver |
 | `credential_resolver_unavailable` | host/keychain 凭据未提供显式 resolver | 是 | 由宿主提供受控 resolver，不回退到隐式环境扫描 |
-| `credential_provider_unsupported` | `auth` 收到 allowlist 外 Provider | 是 | 只使用 OpenAI、AtlasCloud 或 PaddleOCR |
-| `credential_tty_required` | `auth add` 不是在交互式终端运行 | 是 | 在本地交互式终端执行，不通过参数、pipe 或聊天传递 secret |
+| `credential_provider_unsupported` | `auth` 收到 allowlist 外 Provider | 是 | 只使用 OpenAI、OpenAI-compatible 中转站、AtlasCloud 或 PaddleOCR |
+| `provider_profile_invalid` | 中转站 profile 缺少字段、地址不安全或模型为空 | 是 | 使用 `config provider configure` 重新写入 HTTPS 地址与模型 |
+| `provider_profile_missing`、`openai_compatible_configuration_required` | 已选择中转站但尚未配置地址与模型 | 是 | 执行 `config provider configure --provider openai-compatible` |
+| `endpoint_origin_required`、`endpoint_origin_invalid`、`endpoint_origin_unsupported` | backend contract 的 endpoint 缺失、不安全或用于不支持的 Provider | 是 | 仅为 OpenAI-compatible 中转站创建包含 HTTPS endpoint 的 contract |
+| `provider_profile_configured` | 中转站非敏感 profile 已安全写入 | 不适用 | 继续统一 config 向导写入凭据并复查状态 |
+| `credential_tty_required` | `config credential set` 不是在交互式终端运行 | 是 | 在本地交互式终端执行，不通过参数、pipe 或聊天传递 secret |
 | `credential_overwrite_confirmation_required` | 已存在 OS-store 凭据但未显式允许覆盖 | 是 | 核对 Provider 后用 `--overwrite` 再次执行 |
-| `credential_empty` | 隐藏输入为空 | 是 | 重新运行 `auth add` 并输入非空凭据 |
+| `credential_empty` | 隐藏输入为空 | 是 | 重新运行 `config credential set` 并输入非空凭据 |
 | `credential_store_locked`、`credential_store_denied`、`credential_store_failed`、`credential_store_unsupported` | OS 凭据服务锁定、拒绝、失败或平台不支持 | 是 | 解锁/授权系统凭据服务；不回退写入项目或普通配置 |
 | `credential_store_acl_failed`、`credential_store_acl_too_broad` | Windows DPAPI 容器 ACL 无法收窄或验证过宽 | 是 | 修复当前用户目录 ACL 后重试，不消费该 blob |
 | `credential_dpapi_encrypt_failed`、`credential_dpapi_decrypt_failed`、`credential_blob_invalid` | DPAPI 加解密失败、身份不符或密文损坏 | 是 | 删除损坏引用并在当前 Windows 用户下重新添加凭据 |
+| `credential_environment_reference_preserved` | 向导已按用户确认保留既有 `env:<NAME>` 凭据引用；只保存引用，不复制或显示变量值 | 不适用 | 继续当前配置；如当前宿主未提供该变量，运行 `config repair` 改用可见环境变量或 OS store |
+| `credential_store_reference_preserved` | 向导已按用户确认保留既有 OS-store 凭据引用；不读取、复制或显示受保护的凭据值 | 不适用 | 继续当前配置；如 OS store 不可用，运行 `config repair` 恢复受保护存储 |
 | `credential_error` | 凭据 owner 返回未进一步分类的合同错误 | 条件式 | 停止消费并查看同次命令的具体 reason code |
 | `credential_saved`、`credential_removed`、`credential_not_found`、`credential_missing`、`credential_store_available`、`credential_environment_available` | 凭据生命周期的非敏感结果 | 不适用 | 只消费状态与引用；输出不得包含 secret value |
 | `setup_ready` | 本地机制、宿主声明与已确认 Provider 满足当前 route | 不适用 | 继续创建 backend contract 和 run；现场 Provider 与最终交付仍需独立验证 |
@@ -72,6 +78,23 @@
 | `host_image_capability_unavailable` | 用户显式选择内建图片能力，但宿主已声明该能力不可用 | 是 | 选择并确认一个外部图片 Provider |
 | `host_image_capability_invalid` | 宿主图片能力声明不是支持的三态值 | 是 | 使用 `available`、`unavailable` 或 `unknown` |
 | `image_capability_requirement_invalid` | setup 收到 registry 未定义的任务级图片能力 | 是 | 只声明 `mask` 或 `reference`，route 基础能力由 setup 自动补齐 |
+| `task_capability_invalid` | 任务级附加能力不是 `mask` 或 `reference` 之一 | 是 | 只使用 `mask`/`reference` 附加能力，route 基础能力由唯一 Route owner 解析 |
+| `provider_registry_unknown` | Provider Registry 查询未命中已声明的 Provider 或策略 | 否 | 升级 runtime 或选择已注册 Provider；不按缺失声明推测能力 |
+| `schema_not_found` | 请求的机器协议 schema 文件缺失或无法解析 | 否 | 升级 runtime 或修复 schema 打包；不伪造协议结构 |
+| `config_service_error` | 配置编排层收到无法解释的输入或状态 | 否 | 读取具体子 reason code 后修复并重试 |
+| `provider_listed` | Provider Registry 与本地配置状态已列出 | 不适用 | 从列表选择一个 Provider，或继续当前任务 |
+| `credential_status_reported` | 凭据引用状态已列出，未读取 secret value | 不适用 | 缺失时运行 `config credential set` |
+| `paid_verification_consent_required` | `config verify` 尚未获得当前操作的一次性付费同意 | 是 | 审阅费用边界后显式增加 `--yes`，或跳过并使用首张业务图片惰性验证 |
+| `provider_smoke_executor_unavailable` | 已获得同意，但当前 runtime 没有可调用的真实 smoke executor | 否 | 不声明 `ready`；升级 runtime 或直接进入业务图片惰性验证 |
+| `runtime_manager_unavailable` | current metadata 未解析到已安装的 runtime manager | 是 | 重新运行安装器或 bootstrap，恢复受管路径 |
+| `runtime_lifecycle_unavailable` | update/rollback 无法启动 runtime manager 或执行超时 | 是 | 核对安装路径和活动安装进程后重试 |
+| `runtime_lifecycle_protocol_invalid` | runtime manager 未返回可解析的版本化 JSON | 否 | 停止更新或回滚并重新安装可信版本 |
+| `update_confirmation_required` | 更新预览完成，但尚未获得替换安装的明确确认 | 是 | 审阅目标版本后运行 `update --yes` |
+| `wizard_cancelled` | 用户在配置向导中主动退出 | 是 | 保留已完成步骤，用 `config repair` 从最早未完成步骤续接 |
+| `verification_failed` | 真实验证包装器收到无法解释的失败 | 是 | 读取具体子 reason code（鉴权/限流/产物校验等）后修复 |
+| `verification_operation_error` | 验证 operation journal 状态或身份不合法 | 否 | 升级 runtime；不猜测 journal 语义 |
+| `credential_transaction_inconsistent` | 凭据覆盖事务 checkpoint 缺失或互相矛盾 | 否 | 停止并运行 `config repair` 显式核对；不猜测 generation 或重复写 secret |
+| `host_guard_error` | Host readiness guard 收到无法解释的状态 | 否 | 重新读取 config report 与宿主能力声明后重试 |
 | `ocr_requirement_invalid` | OCR 阶段声明不是当前 setup 支持的值 | 是 | 使用 `not_required` 或 `editable_text_hints` |
 | `image_provider_configuration_required` | 宿主图片能力不可用且没有外部图片 Provider 凭据 | 是 | 在本地安全终端配置一个 Provider 后重新执行 setup |
 | `provider_confirmation_required` | 仅一个外部 Provider 就绪，但尚未得到用户确认 | 是 | 使用 primary action 明确确认该 Provider |
@@ -100,6 +123,8 @@
 | `delivery_summary_invalid`、`delivery_structure_not_ready` | 最终 validation summary 不可读，或结构门禁未通过 | 是 | 修复最终产物与 validation summary，不能用人工 receipt 绕过 |
 | `delivery_acceptance_pending` | 产物已生成，但独立渲染或人工视觉验收尚未通过 | 是 | 记录当前 PPTX 的 visual 与 manual acceptance receipt |
 | `delivery_accepted` | 交付结构、独立渲染与人工验收均已闭环 | 不适用 | 保存 evidence refs 并交付 |
+| `run_output_outside_project`、`input_outside_project`、`backend_contract_outside_project`、`project_path_untrusted`、`output_outside_run`、`output_path_untrusted` | 输入、backend contract 或 run 不在项目固定目录，或项目/final 路径包含不可信链接 | 否 | 将输入、合同和 run 分别放入项目 `sources/`、`contracts/`、`runs/`，移除路径链接并使用默认 final 输出 |
+| `slides_fingerprint_conflict` | 已冻结的 `input/slides.json` 与新输入不一致 | 否 | 创建新 run，不能覆盖已绑定的逐页合同 |
 | `evidence_conflict` | 同类证据路径已绑定不同内容 | 是 | 保留旧证据；变更结论必须创建新 run 或受控复验 |
 | `provenance_artifact_mismatch` | provider provenance 未绑定 canonical 页面产物 hash | 是 | 从当前 domain state 读取页面产物 hash 后重新记录 |
 | `provenance_recorded`、`visual_evidence_recorded`、`manual_acceptance_recorded` | provider provenance、独立视觉或人工验收证据已绑定 | 不适用 | 核对 receipt hash 与 validation summary 后交付 |
@@ -150,3 +175,29 @@
 | `upstream_setup_replaced_by_runtime_manager` | 旧 setup 已由受管 runtime 替代 | 是 | 运行 `runtime_manager.py ensure|doctor` |
 | `unknown_upstream`、`unknown_upstream_tool` | 固定 bridge 不认识上游或工具名 | 否 | 使用 `upstream --help` 中固定命令树 |
 | `route_contract_error`、`contract_error` | 稳定合同的兜底分类；具体子码不可用 | 条件式 | 保存证据并运行 diagnose，不盲重试 |
+
+## 配置与验证控制面（guided-provider-config）
+
+以下 code 属于统一配置、验证与宿主守卫控制面；机器可读输出始终带
+`execution_eligibility` 与唯一 `primary_action`。
+
+| Reason code | 含义 | 可恢复性 | 动作 |
+| --- | --- | --- | --- |
+| `configuration_ready`、`provider_verification_not_run`、`provider_verification_stale` | 当前 Route 已真实验证、尚未验证或证据已过期 | 不适用 | 按 `start_task` 继续；stale 由显式 smoke 或下一张业务图片刷新 |
+| `development_config_reset_required` | 开发期配置与正式 schema v1 不符 | 是 | 确认后执行 `config repair` 重建非敏感 v1；不猜测迁移 |
+| `provider_selection_required` | 存在候选但未选择当前 Provider | 是 | 运行 `config` 进入统一向导 |
+| `provider_profile_invalid:endpoint_origin`、`provider_profile_invalid:model` | endpoint 或 model 不符合 v1 合同 | 是 | `config repair` 修正字段 |
+| `credential_input_channel_unavailable` | 无 TTY、无 env、无显式 stdin 通道可用 | 是 | 在终端运行 `config`，或用环境变量引用 |
+| `credential_environment_missing` | env 引用存在但当前进程变量缺失 | 是 | `config repair` 改用宿主可见引用或 OS store |
+| `provider_authentication_failed`、`provider_permission_denied`、`provider_endpoint_not_found`、`provider_model_not_found` | Provider 鉴权/权限/端点/模型错误 | 是 | `config repair` 核对凭据与档案 |
+| `provider_rate_limited`、`provider_server_error`、`provider_timeout` | 限流、服务端错误或超时 | 是 | `wait_and_retry`；限流/超时不附 CLI |
+| `provider_network_error` | DNS/连接/TLS 失败 | 是 | `config repair` 后重试 |
+| `provider_outcome_unknown` | 调用结果不确定且无幂等证明 | 是 | `confirm_new_request`：用户确认后使用新 operation id |
+| `provider_artifact_empty`、`provider_artifact_unreadable`、`provider_artifact_media_type_unsupported` | 产物为空、损坏或类型不支持 | 是 | `verify` 或 `repair` 后重试 |
+| `verification_receipt_invalid`、`verification_evidence_persist_failed` | receipt 结构非法或 evidence 合并失败 | 是 | `config repair` 本地修复；业务图片成功后绝不再次调用 Provider |
+| `config_write_failed` | 配置原子写失败 | 是 | `config repair`；不覆盖已存在有效配置 |
+| `cli_path_unresolved` | 受管 runtime 绝对 CLI 尚未解析 | 是 | 由安装器返回 absolute launcher `ensure` 命令 |
+| `config_protocol_invalid` | 机器协议输出不符合合同 | 是 | `config repair` |
+| `config_check_unavailable` | 本地状态检查暂时不可用 | 是 | `wait_and_retry` |
+| `host_check_required` | Host_Provider 需宿主现场确认 | 条件式 | 由当前宿主 setup 现场声明；不凭配置文件推断 |
+| `host_recheck_allowed` | 复查后 Host 能力允许继续原任务 | 不适用 | `resume_task` 从中断节点恢复 |

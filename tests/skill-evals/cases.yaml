@@ -121,3 +121,106 @@ cases:
     expected_route: generate
     required_references: [references/first-use.md]
     expected_reference_anchor: 用户要求跳过样张时仍不能跳过
+
+host_skill_evals:
+  hosts: [codex, claude, kiro]
+  cases:
+    - id: host-available-zero-key
+      route: generate
+      host_capability: available
+      external_status: not_configured
+      expected_action: continue
+      expected_eligibility: allowed
+      expected_lazy_verification: false
+      expected_primary_action_kinds: []
+      expected_command_count: 0
+      expected_transcript_tools: [bootstrap, setup, config_status, guard_continue]
+      requires_first_use_guard: true
+      contract_anchors:
+        - source: skill
+          text: 只有宿主现场明确声明图片能力 available，才走零密钥内置路径
+        - source: first_use
+          text: 只有宿主明确声明 available，才能选择 `builtin-imagegen`
+    - id: external-unverified-first-image
+      route: generate
+      host_capability: unavailable
+      external_status: configured_unverified
+      expected_action: continue
+      expected_eligibility: allowed
+      expected_lazy_verification: true
+      expected_primary_action_kinds: []
+      expected_command_count: 0
+      expected_transcript_tools: [bootstrap, setup, config_status, guard_continue, first_business_image]
+      requires_first_use_guard: true
+      contract_anchors:
+        - source: skill
+          text: 首张真实业务图片承担惰性验证
+        - source: first_use
+          text: 允许开始任务，首张真实业务图片承担
+    - id: blocked-single-command
+      route: generate
+      host_capability: unavailable
+      external_status: not_configured
+      expected_action: blocked_invalid
+      expected_eligibility: blocked
+      expected_lazy_verification: false
+      expected_primary_action_kinds: [run_cli]
+      expected_command_count: 1
+      expected_transcript_tools: [bootstrap, setup, config_status, primary_action, guard_blocked_invalid]
+      requires_first_use_guard: true
+      contract_anchors:
+        - source: skill
+          text: 只输出一个 `run_cli` Primary_Action 终端命令
+        - source: first_use
+          text: 每个非 ready 结果只执行 `primary_action`
+    - id: degraded-typed-action
+      route: generate
+      host_capability: unavailable
+      external_status: degraded
+      operation_context: degraded
+      resume_ref: task/image-node
+      expected_action: pause
+      expected_eligibility: retryable
+      expected_lazy_verification: false
+      expected_primary_action_kinds: [wait_and_retry]
+      expected_command_count: 0
+      expected_transcript_tools: [bootstrap, setup, config_status, primary_action, guard_pause]
+      requires_first_use_guard: true
+      contract_anchors:
+        - source: first_use
+          text: 每个非 ready 结果只执行 `primary_action`
+    - id: configured-task-resume
+      route: generate
+      host_capability: unavailable
+      external_status: not_configured
+      recheck_external_status: configured_unverified
+      resume_ref: task/image-node
+      expected_action: resume
+      expected_eligibility: allowed
+      expected_lazy_verification: true
+      expected_primary_action_kinds: [run_cli]
+      expected_command_count: 1
+      expected_transcript_tools: [bootstrap, setup, config_status, primary_action, config_status_recheck, guard_resume, first_business_image]
+      requires_first_use_guard: true
+      contract_anchors:
+        - source: skill
+          text: 命令成功后自动回到原任务
+        - source: first_use
+          text: "`allowed` 时从原"
+    - id: no-post-install-hook-fallback
+      route: generate
+      host_capability: unavailable
+      external_status: configured_unverified
+      post_install_hook: unavailable
+      expected_action: continue
+      expected_eligibility: allowed
+      expected_lazy_verification: true
+      expected_primary_action_kinds: []
+      expected_command_count: 0
+      expected_transcript_tools: [bootstrap, setup, config_status, guard_continue, first_business_image]
+      requires_first_use_guard: true
+      contract_anchors:
+        - source: skill
+          text: 读取 [首次使用](references/first-use.md)
+        - source: first_use
+          text: 本页只供 Agent 执行首次准备

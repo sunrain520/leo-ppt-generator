@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {"const": 1},
     "backend_kind": {"enum": ["builtin-imagegen", "openai-compatible", "atlascloud"]},
-    "provider": {"enum": ["builtin-imagegen", "fixture", "openai", "atlascloud"]},
+    "provider": {"enum": ["builtin-imagegen", "fixture", "openai", "openai-compatible", "atlascloud"]},
     "model": {"type": "string", "minLength": 1},
     "mode": {"enum": ["generate", "edit"]},
     "credential_source": {"enum": ["host-managed", "environment-reference", "os-store-reference"]},

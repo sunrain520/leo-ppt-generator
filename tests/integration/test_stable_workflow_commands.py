@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from leo_ppt_generator import cli
 from leo_ppt_generator.application.run_index import IdempotencyConflict, RunIndex
+from leo_ppt_generator.contracts import ContractError
 from leo_ppt_generator.editable.adapter import EditableAdapter
 from leo_ppt_generator.image_deck.adapter import ImageDeckAdapter
 from PIL import Image
@@ -23,6 +24,40 @@ def parse(*arguments: str):
 def png(path: Path) -> Path:
     Image.new("RGB", (160, 90), "navy").save(path)
     return path
+
+
+def test_run_create_enforces_project_root_contract(tmp_path):
+    project_root = tmp_path / "project"
+    source = project_root / "sources" / "brief.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Deck\n", encoding="utf-8")
+    backend = project_root / "contracts" / "backend.json"
+    backend.parent.mkdir(parents=True)
+    backend.write_text(
+        json.dumps(backend_contract(mode="generate")), encoding="utf-8"
+    )
+    run = project_root / "runs" / "run-001"
+
+    created = cli.dispatch(
+        parse(
+            "run",
+            "create",
+            "--route",
+            "generate",
+            "--input",
+            str(source),
+            "--project-root",
+            str(project_root),
+            "--output",
+            str(run),
+            "--backend-contract",
+            str(backend),
+        )
+    )
+
+    assert created["status"] == "ready"
+    assert created["run"]["project_root"] == str(project_root.resolve())
+    assert created["run"]["output_dir"] == str(run.resolve())
 
 
 def test_operation_retry_and_cancel_have_stable_idempotency_contract(tmp_path):
@@ -201,6 +236,14 @@ def test_image_prepare_record_and_assemble_replay_stable_flow(tmp_path):
     prepared = cli.dispatch(
         parse("image", "prepare", str(run), "--slides", str(slides))
     )
+    frozen_slides = run / "input/slides.json"
+    assert frozen_slides.read_bytes() == slides.read_bytes()
+    frozen_input = RunIndex(run).snapshot()["supplemental_inputs"]["slides"]
+    assert frozen_input["path"] == "input/slides.json"
+    assert len(frozen_input["sha256"]) == 64
+    slides.unlink()
+    replayed_prepare = cli.dispatch(parse("image", "prepare", str(run)))
+    assert replayed_prepare["idempotency_status"] == "replayed"
     state_hash = prepared["state_hash"]
     arguments = (
         "image",
@@ -229,6 +272,16 @@ def test_image_prepare_record_and_assemble_replay_stable_flow(tmp_path):
     assert operation["status"] == "completed"
     assert operation["safe_to_retry"] is False
     assert lease["status"] == "completed"
+    with pytest.raises(ContractError, match="output_outside_run"):
+        cli.dispatch(
+            parse(
+                "image",
+                "assemble",
+                str(run),
+                "--output",
+                str(tmp_path / "escaped.pptx"),
+            )
+        )
     assembled = cli.dispatch(parse("image", "assemble", str(run)))
     assembled_again = cli.dispatch(parse("image", "assemble", str(run)))
     assert assembled["idempotency_status"] == "created"
@@ -280,6 +333,19 @@ def test_image_prepare_record_and_assemble_replay_stable_flow(tmp_path):
         path: path.read_bytes()
         for path in (run / "run.json", run / "image-deck/slide_jobs.json")
     } == before_cancel
+
+
+def test_image_prepare_rejects_frozen_slides_symlink(tmp_path):
+    run = tmp_path / "run"
+    RunIndex.create(run, route="generate", runtime_identity="runtime")
+    slides = tmp_path / "slides.json"
+    slides.write_text('[{"number": 1}]\n', encoding="utf-8")
+    frozen = run / "input/slides.json"
+    frozen.parent.mkdir()
+    frozen.symlink_to(slides)
+
+    with pytest.raises(ContractError, match="input_symlink_forbidden"):
+        cli.dispatch(parse("image", "prepare", str(run), "--slides", str(slides)))
 
 
 def test_upgrade_finalize_full_selected_and_explicit_partial(tmp_path):

@@ -26,6 +26,28 @@ def test_execution_context_resolves_declared_environment_reference_without_leaki
     assert "test-secret" not in json.dumps(context.receipt)
 
 
+@pytest.mark.parametrize(
+    "endpoint_origin",
+    ("https://proxy.example.com", "https://proxy.example.com/v1"),
+)
+def test_execution_context_maps_compatible_contract_to_isolated_openai_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, endpoint_origin: str
+):
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "proxy-secret")
+    contract_path = tmp_path / "backend-contract.json"
+    contract = backend_contract("openai-compatible")
+    contract["endpoint_origin"] = endpoint_origin
+    contract_path.write_text(json.dumps(contract), encoding="utf-8")
+
+    context = build_execution_context(contract_path, tmp_path / "isolated")
+
+    assert context.provider == "openai-compatible"
+    assert context.environment["OPENAI_API_KEY"] == "proxy-secret"
+    assert context.environment["OPENAI_BASE_URL"] == "https://proxy.example.com/v1"
+    assert context.receipt["credential_ref"] == "env:OPENAI_COMPATIBLE_API_KEY"
+    assert "proxy-secret" not in json.dumps(context.receipt)
+
+
 def test_execution_context_maps_atlas_contract_to_atlas_provider_environment(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ):

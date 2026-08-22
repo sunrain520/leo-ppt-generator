@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/session-start",
+            "commandWindows": "\".codex\\hooks\\session-start.cmd\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/kuang/.local/bin/graphify' hook-check"
+          }
+        ]
+      }
+    ]
+  }
+}

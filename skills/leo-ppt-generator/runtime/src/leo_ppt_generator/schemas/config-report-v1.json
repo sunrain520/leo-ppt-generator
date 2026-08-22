@@ -1,0 +1,165 @@
+{
+  "$id": "leo-ppt-generator/config-report/v1",
+  "title": "Leo PPT configuration report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "schema_version",
+    "stage",
+    "status",
+    "configuration_state",
+    "verification",
+    "execution_eligibility",
+    "installation_readiness",
+    "readiness_scope",
+    "reason_code",
+    "selected_provider",
+    "providers",
+    "evidence_refs",
+    "primary_action"
+  ],
+  "properties": {
+    "protocol": {"const": "leo-ppt-config/v1"},
+    "schema_version": {"const": 1},
+    "stage": {"type": "string", "minLength": 1},
+    "status": {"$ref": "#/$defs/config_status"},
+    "configuration_state": {"$ref": "#/$defs/configuration_state"},
+    "verification": {"$ref": "#/$defs/verification"},
+    "execution_eligibility": {"enum": ["allowed", "retryable", "blocked"]},
+    "installation_readiness": {
+      "enum": ["ready", "usable_unverified", "installed_not_ready"]
+    },
+    "readiness_scope": {"$ref": "#/$defs/readiness_scope"},
+    "reason_code": {"type": "string", "minLength": 1},
+    "selected_provider": {
+      "oneOf": [{"$ref": "#/$defs/provider"}, {"type": "null"}]
+    },
+    "providers": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/provider_report"},
+      "maxItems": 4
+    },
+    "evidence_refs": {"$ref": "#/$defs/evidence_refs"},
+    "primary_action": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/primary_action"}]
+    }
+  },
+  "$defs": {
+    "provider": {
+      "enum": ["openai", "openai-compatible", "atlascloud", "builtin-imagegen"]
+    },
+    "capability": {"enum": ["generate", "edit", "mask", "reference"]},
+    "configuration_state": {
+      "enum": ["not_configured", "locally_configured", "invalid"]
+    },
+    "verification_state": {"enum": ["not_run", "passed", "failed", "stale"]},
+    "config_status": {
+      "enum": ["not_configured", "configured_unverified", "ready", "degraded", "invalid"]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/capability"},
+      "uniqueItems": true
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {"status": {"$ref": "#/$defs/verification_state"}}
+    },
+    "readiness_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "required_capabilities",
+        "verified_capabilities",
+        "missing_capabilities"
+      ],
+      "properties": {
+        "route": {
+          "enum": ["generate", "direct-editable", "upgrade-full", "upgrade-selected"]
+        },
+        "required_capabilities": {"$ref": "#/$defs/nonempty_capabilities"},
+        "verified_capabilities": {"$ref": "#/$defs/capabilities"},
+        "missing_capabilities": {"$ref": "#/$defs/capabilities"},
+        "fingerprint_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "nonempty_capabilities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/capability"},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "provider_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "configuration_state",
+        "verification",
+        "candidate_capabilities",
+        "scope_compatible",
+        "credential_reference_type",
+        "reason_code",
+        "evidence_refs"
+      ],
+      "properties": {
+        "provider": {"$ref": "#/$defs/provider"},
+        "configuration_state": {"$ref": "#/$defs/configuration_state"},
+        "verification": {"$ref": "#/$defs/verification"},
+        "candidate_capabilities": {"$ref": "#/$defs/capabilities"},
+        "scope_compatible": {"type": "boolean"},
+        "credential_reference_type": {
+          "enum": [
+            "environment-reference",
+            "os-store-reference",
+            "not-required",
+            "none"
+          ]
+        },
+        "reason_code": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidence_refs"}
+      }
+    },
+    "primary_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "run_cli",
+            "start_task",
+            "resume_task",
+            "wait_and_retry",
+            "confirm_new_request"
+          ]
+        },
+        "command": {"type": "string", "minLength": 1},
+        "resume_ref": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"kind": {"const": "run_cli"}},
+            "required": ["kind"]
+          },
+          "then": {"required": ["command"]},
+          "else": {"not": {"required": ["command"]}}
+        }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

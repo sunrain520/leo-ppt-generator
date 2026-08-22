@@ -59,12 +59,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["provider", "capabilities", "credential_status", "credential_reference_type", "evidence_refs", "execution_owner", "recommended", "recommendation_reason"],
+        "required": ["provider", "capabilities", "credential_status", "credential_reference_type", "configuration_status", "ready", "evidence_refs", "execution_owner", "recommended", "recommendation_reason"],
         "properties": {
           "provider": {"type": "string", "minLength": 1},
           "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
           "credential_status": {"enum": ["available", "missing", "unavailable", "unknown", "resolver_unavailable", "unavailable_resolver"]},
           "credential_reference_type": {"type": "string", "minLength": 1},
+          "configuration_status": {"enum": ["available", "missing", "not_required"]},
+          "ready": {"type": "boolean"},
           "evidence_refs": {"type": "array", "items": {"type": "string"}},
           "execution_owner": {"enum": ["agent-host", "runtime"]},
           "recommended": {"type": "boolean"},

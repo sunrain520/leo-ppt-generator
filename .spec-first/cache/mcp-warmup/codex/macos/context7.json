@@ -1,0 +1,17 @@
+{
+  "schema_version": "mcp-warmup-cache.v1",
+  "tool_id": "context7",
+  "host": "codex",
+  "platform": "macos",
+  "command": "npx",
+  "args": [
+    "-y",
+    "@upstash/context7-mcp@latest",
+    "--help"
+  ],
+  "command_hash": "d0a86a1b660cb78e954bd0a54822008c54cf9a516d961597750bfa18d88a2d04",
+  "package_spec": "",
+  "last_success_at": "2026-08-20T18:04:14.462Z",
+  "last_success_epoch": 1787249054,
+  "exit_code": 0
+}

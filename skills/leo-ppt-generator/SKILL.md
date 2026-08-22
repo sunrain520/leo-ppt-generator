@@ -19,28 +19,42 @@ live host capability、worker 派发和交付判断；`leo-ppt` 只拥有确定�
    unavailable 才展示符合任务 capability 的外部图片 Provider。
 4. 只有确实缺少所选外部服务凭据时，暂停原任务并给用户一条本地终端命令；禁止用户
    在聊天中粘贴 secret。命令成功后自动回到原任务，不重复询问已确认的内容。
+5. 使用统一配置入口读取与解释状态，不手写 backend JSON 或凭据字段：
+
+   `"$LEO_PPT" config status --json --route <route>`
+
+   `configured_unverified` 表示本地配置完整且允许开始任务（`
+   execution_eligibility=allowed`、`installation_readiness=usable_unverified`），
+   首张真实业务图片承担惰性验证；`ready` 只表示当前 Route 所需能力已被有效
+   evidence 或宿主现场能力完整覆盖。`not_configured`/`invalid` 才暂停图片节点，
+   只输出一个 `run_cli` Primary_Action 终端命令。
 
 不得调用、安装或要求用户安装额外历史 CLI。不得从 PATH 猜测 `leo-ppt`，不得把
 launcher、setup、backend JSON 或内部诊断步骤当作普通用户的前置教程。
 
-5. 用户确认 provider 与 mode 后，用 registry 生成并校验 backend contract，不手写
+6. 在产生 backend contract、样张、逐页合同或 run 前，先冻结唯一项目目录
+   `<project-root>`。共享输出根下必须为每个课件创建独立子目录；禁止把输入、样张、
+   backend contract、run 或最终 PPTX 直接写到共享输出根。项目目录固定分层为
+   `sources/`、`contracts/`、`samples/`、`runs/` 和 `deliveries/`；其中正式运行状态
+   只写入 `runs/<run-id>/`，canonical PPTX 只写入该 run 的 `final/`。
+7. 用户确认 provider 与 mode 后，用 registry 生成并校验 backend contract，不手写
    capability 或 credential 字段：
 
-   `"$LEO_PPT" backend create --provider <builtin-imagegen|openai|atlascloud> --mode <generate|edit> --output <backend.json>`
+   `"$LEO_PPT" backend create --provider <builtin-imagegen|openai|openai-compatible|atlascloud> --mode <generate|edit> --output <project-root>/contracts/backend-<mode>.json`
 
-   `"$LEO_PPT" backend validate <backend.json>`
+   `"$LEO_PPT" backend validate <project-root>/contracts/backend-<mode>.json`
 
    `valid` 只证明合同结构有效；仍须按 `credential_reference_status` 处理真实凭据，
    并在执行前完成 provider smoke。
 
-6. 为每次交付创建独立 run：
+8. 为每次交付创建独立 run：
 
-   `"$LEO_PPT" run create --route <route> --input <path> --output <run> --backend-contract <backend.json> --idempotency-key <key> [--office-trusted]`
+   `"$LEO_PPT" run create --route <route> --input <project-root>/sources/<input> --project-root <project-root> --output <project-root>/runs/<run-id> --backend-contract <project-root>/contracts/backend-<mode>.json --idempotency-key <key> [--office-trusted]`
 
    `--office-trusted` 只表示用户已确认来源可信；preflight 仍会拒绝旧 `.ppt`、宏、
    嵌入对象、external relationship、远程模板或损坏 PPTX。`run create` 会流式
    复制输入和 backend contract，记录 hash、大小、类型并固定 runtime identity。
-7. 推进前运行 `"$LEO_PPT" run status <run> --json`；失败时运行
+9. 推进前运行 `"$LEO_PPT" run status <run> --json`；失败时运行
    `"$LEO_PPT" run diagnose <run> --json`。响应丢失时使用
    `"$LEO_PPT" run operation <run> --id <operation-id> --json`，不得换 key 重复创建。
 
@@ -64,10 +78,19 @@ launcher、setup、backend JSON 或内部诊断步骤当作普通用户的前置
   token、完整环境或用户正文写入日志。
 - backend contract 只允许 `env:`、`host:` 或 `keychain:` credential reference；
   不得调用旧 `setup/config` 保存明文凭据。
+- 统一配置入口是 `leo-ppt config`；`config status` 只读零外部调用，
+  `config provider` 与 `config credential` 管理 Provider 和安全凭据引用，`verify --yes`
+  是显式付费 smoke（默认拒绝、一次性 consent），`repair` 从最早未完成步骤续接。
+  宿主不得代替用户录入密钥或把聊天内容变成凭据通道。
+- `configured_unverified` 允许开始任务；只有 `not_configured`/`invalid` 才暂停
+  图片节点并只给一个 `run_cli` Primary_Action。`ready` 需要有效 Capability_Evidence
+  或宿主现场能力，禁止把 `unknown` 当 `available` 产生零密钥假绿。
 - 结构验证不等于视觉等价；真实 provider、OCR、Office viewer、PowerPoint
   桌面和人工视觉证据分别报告。
 - 顶层 `status=completed` 只表示产物阶段结束；继续读取 `delivery_readiness`。
   `acceptance_pending` 必须补齐独立渲染与人工验收，只有 `accepted` 才能报告交付闭环。
+- 顶层 run 的 `image assemble`、`editable finalize` 和 `upgrade finalize` 只能把 canonical
+  PPTX 写入当前 run 的 `final/`；不得用 `--output` 绕过项目目录或直接发布到共享根。
 
 ## 固定上游能力入口
 

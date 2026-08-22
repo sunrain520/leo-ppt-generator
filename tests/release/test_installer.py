@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -15,6 +16,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = ROOT / "install.sh"
 WINDOWS_INSTALLER = ROOT / "install.ps1"
+POSIX_LAUNCHER = ROOT / "skills/leo-ppt-generator/scripts/leo-ppt"
+
+
+def test_powershell_onboarding_defaults_to_safe_defer_and_rechecks():
+    source = WINDOWS_INSTALLER.read_text(encoding="utf-8")
+
+    assert "现在进入配置向导？[y/N]" in source
+    assert "$Choice -notmatch '^(?i:y|yes)$'" in source
+    assert "Invoke-PostActivationOnboarding -StageRoot $StageRoot -SkipPrompt" in source
 
 
 def _backup_directories(target: Path) -> list[Path]:
@@ -59,6 +69,7 @@ def _make_source(tmp_path: Path, *, version: str = "new", fail_route: str = "") 
     (source / "VERSION").write_text(version, encoding="utf-8")
     (scripts / "runtime_manager.py").write_text(
         """from __future__ import annotations
+import json
 import os
 import sys
 import time
@@ -85,6 +96,31 @@ if sys.argv[1:] == ["bootstrap"]:
         raise SystemExit(0)
     print('{"protocol":"leo-ppt-bootstrap/v1","status":"ready","runtime_identity":"fixture","cli_reference":"fixture-cli"}')
     raise SystemExit(0)
+if sys.argv[1:] == ["print-cli"]:
+    print(os.environ["LEO_INSTALLER_CURRENT_CLI"])
+    raise SystemExit(0)
+if sys.argv[1:] == ["onboard", "--route", "generate"]:
+    if os.environ.get("LEO_INSTALLER_ONBOARD_FAIL") == "1":
+        raise SystemExit(29)
+    status = os.environ.get("LEO_INSTALLER_ONBOARD_STATUS", "configured_unverified")
+    eligibility = {
+        "ready": "allowed",
+        "configured_unverified": "allowed",
+        "degraded": "retryable",
+    }.get(status, "blocked")
+    readiness = {
+        "ready": "ready",
+        "configured_unverified": "usable_unverified",
+    }.get(status, "installed_not_ready")
+    print(json.dumps({
+        "schema_version": 1,
+        "status": status,
+        "reason_code": "fixture_onboarding_" + status,
+        "installation_readiness": readiness,
+        "execution_eligibility": eligibility,
+        "cli_reference": os.environ.get("LEO_INSTALLER_ONBOARD_CLI", "/fixture/leo-ppt"),
+    }))
+    raise SystemExit(0)
 if len(sys.argv) >= 4 and sys.argv[1:3] == ["doctor", "--route"]:
     if sys.argv[3] == os.environ.get("LEO_INSTALLER_FAIL_ROUTE"):
         raise SystemExit(23)
@@ -97,10 +133,14 @@ if len(sys.argv) >= 4 and sys.argv[1:3] == ["doctor", "--route"]:
         encoding="utf-8",
     )
     (scripts / "leo-bootstrap.sh").write_text(
-        '#!/bin/sh\nexec python3 "$(dirname "$0")/runtime_manager.py" "$@"\n',
+        '#!/bin/sh\n'
+        'if [ "${LEO_PPT_BOOTSTRAP_QUIET:-0}" != "1" ]; then echo "bootstrap[fixture]" >&2; fi\n'
+        'exec python3 "$(dirname "$0")/runtime_manager.py" "$@"\n',
         encoding="utf-8",
     )
     (scripts / "leo-bootstrap.sh").chmod(0o755)
+    shutil.copy2(POSIX_LAUNCHER, scripts / "leo-ppt")
+    (scripts / "leo-ppt").chmod(0o755)
     (scripts / "leo-bootstrap.ps1").write_text(
         "param([Parameter(ValueFromRemainingArguments=$true)][string[]]$ManagerArguments)\n"
         "& python3 (Join-Path $PSScriptRoot 'runtime_manager.py') @ManagerArguments\n"
@@ -162,10 +202,103 @@ def test_local_install_stages_bundle_and_verifies_all_routes(tmp_path: Path):
         "doctor --route direct-editable",
         "doctor --route upgrade-full",
         "doctor --route upgrade-selected",
+        "onboard --route generate",
     ]
     assert "重新启动 Codex" in result.stdout
     for stage in ("platform_check", "runtime_ensure", "route_doctor", "activate"):
         assert f"install[{stage}]" in result.stdout
+
+
+def test_macos_installs_stable_launcher_that_follows_current_cli(tmp_path: Path):
+    source = _make_source(tmp_path / "first-source", version="first")
+    upgraded_source = _make_source(tmp_path / "second-source", version="second")
+    home = tmp_path / "user-home"
+    calls = tmp_path / "launcher-calls.log"
+
+    def fixture_cli(name: str) -> Path:
+        path = tmp_path / f"runtime-{name}" / "leo-ppt"
+        path.parent.mkdir()
+        path.write_text(
+            "#!/bin/sh\n"
+            f'printf "%s\\n" "{name}:$*" >>"$LEO_LAUNCHER_TEST_LOG"\n',
+            encoding="utf-8",
+        )
+        path.chmod(0o755)
+        return path
+
+    first_cli = fixture_cli("first")
+    second_cli = fixture_cli("second")
+    result, target, _ = _run_installer(
+        tmp_path,
+        source,
+        extra_env={"LEO_INSTALLER_CURRENT_CLI": str(first_cli)},
+    )
+
+    launcher = home / ".local/bin/leo-ppt"
+    assert result.returncode == 0, result.stderr
+    assert launcher.is_symlink()
+    assert launcher.resolve() == (target / "scripts/leo-ppt").resolve()
+
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "LEO_INSTALLER_CURRENT_CLI": str(first_cli),
+            "LEO_INSTALLER_TEST_LOG": str(tmp_path / "runtime-manager-calls.log"),
+            "LEO_LAUNCHER_TEST_LOG": str(calls),
+            "PATH": f"{launcher.parent}:{os.environ['PATH']}",
+        }
+    )
+    first = subprocess.run(
+        ["leo-ppt", "config", "--help"],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    upgraded, _, _ = _run_installer(
+        tmp_path,
+        upgraded_source,
+        "--upgrade",
+        extra_env={"LEO_INSTALLER_CURRENT_CLI": str(second_cli)},
+        target=target,
+    )
+    environment["LEO_INSTALLER_CURRENT_CLI"] = str(second_cli)
+    second = subprocess.run(
+        ["leo-ppt", "config", "status", "--json"],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert first.returncode == 0, first.stderr
+    assert first.stderr == ""
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert launcher.is_symlink()
+    assert launcher.resolve() == (target / "scripts/leo-ppt").resolve()
+    assert (target / "VERSION").read_text(encoding="utf-8") == "second"
+    assert second.returncode == 0, second.stderr
+    assert second.stderr == ""
+    assert calls.read_text(encoding="utf-8").splitlines() == [
+        "first:config --help",
+        "second:config status --json",
+    ]
+
+
+def test_macos_installer_does_not_overwrite_foreign_leo_ppt_command(tmp_path: Path):
+    source = _make_source(tmp_path)
+    launcher = tmp_path / "user-home/.local/bin/leo-ppt"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text("third-party-command\n", encoding="utf-8")
+
+    result, target, _ = _run_installer(tmp_path, source)
+
+    assert result.returncode != 0
+    assert "leo-ppt" in result.stderr
+    assert "覆盖" in result.stderr
+    assert launcher.read_text(encoding="utf-8") == "third-party-command\n"
+    assert not target.exists()
 
 
 def test_existing_target_is_not_overwritten_without_upgrade(tmp_path: Path):
@@ -412,6 +545,7 @@ exec /bin/mv "$@"
     assert result.returncode != 0
     assert "恢复旧版本" in result.stderr
     assert (target / "VERSION").read_text(encoding="utf-8") == "old"
+    assert not (tmp_path / "user-home/.local/bin/leo-ppt").exists()
     assert not _backup_directories(target)
 
 
@@ -690,9 +824,12 @@ def test_windows_installer_stages_bundle_and_verifies_all_routes(tmp_path: Path)
         "doctor --route direct-editable",
         "doctor --route upgrade-full",
         "doctor --route upgrade-selected",
+        "onboard --route generate",
     ]
+    assert "配置完成，可以开始使用；首次生成图片时验证服务。" in result.stdout
+    assert "onboarding[readiness]: usable_unverified" in result.stdout
     assert "重新启动 Codex" in result.stdout
-    for stage in ("platform_check", "runtime_ensure", "route_doctor", "activate"):
+    for stage in ("platform_check", "runtime_ensure", "route_doctor", "activate", "onboarding"):
         assert f"install[{stage}]" in result.stdout
 
 
@@ -1020,3 +1157,104 @@ def test_windows_and_macos_constraints_pin_the_same_dependency_set():
     assert pins(constraints / "py312-win32-amd64.txt") == pins(
         constraints / "py312-darwin-arm64.txt"
     )
+
+
+@pytest.mark.parametrize("status, eligibility", [("not_configured", "blocked"), ("degraded", "retryable")])
+def test_powershell_onboarding_defers_noninteractive_config_without_rollback(
+    tmp_path: Path, status: str, eligibility: str
+):
+    source = _make_source(tmp_path / "来源 空格 '单引号'")
+    cli_path = tmp_path / "CLI 路径 '单引号'" / "leo-ppt"
+
+    result, target, log = _run_windows_installer(
+        tmp_path,
+        source,
+        extra_env={
+            "LEO_INSTALLER_ONBOARD_STATUS": status,
+            "LEO_INSTALLER_ONBOARD_CLI": str(cli_path),
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (target / "SKILL.md").is_file()
+    assert log.read_text(encoding="utf-8").splitlines()[-1] == "onboard --route generate"
+    assert f"onboarding[eligibility]: {eligibility}" in result.stdout
+    assert "当前不是交互终端；Skill 已安装，但图片服务尚未就绪。" in result.stdout
+    escaped_cli_path = str(cli_path).replace("'", "''")
+    assert f"& '{escaped_cli_path}' config" in result.stdout
+
+
+def test_powershell_onboarding_failure_preserves_activated_skill(tmp_path: Path):
+    source = _make_source(tmp_path)
+
+    result, target, log = _run_windows_installer(
+        tmp_path,
+        source,
+        extra_env={"LEO_INSTALLER_ONBOARD_FAIL": "1"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (target / "SKILL.md").is_file()
+    assert log.read_text(encoding="utf-8").splitlines()[-1] == "onboard --route generate"
+    assert "onboarding[readiness]: installed_not_ready（reason_code=config_check_unavailable）" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("status", "readiness", "verification"),
+    (
+        ("ready", "ready", "真实验证已通过"),
+        ("configured_unverified", "usable_unverified", "尚未完成当前图片能力的真实验证"),
+    ),
+)
+def test_powershell_onboarding_activates_before_usable_statuses(
+    tmp_path: Path, status: str, readiness: str, verification: str
+):
+    source = _make_source(tmp_path / f"source {status} 'quoted'")
+    target = tmp_path / f"install {status} 'quoted'" / "leo-ppt-generator"
+
+    result, installed, log = _run_windows_installer(
+        tmp_path,
+        source,
+        extra_env={"LEO_INSTALLER_ONBOARD_STATUS": status},
+        target=target,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert installed == target
+    assert (installed / "SKILL.md").is_file()
+    assert result.stdout.index("install[activate]") < result.stdout.index("install[onboarding]")
+    assert "onboarding[configuration]: 本地配置完成" in result.stdout
+    assert f"onboarding[verification]: {verification}" in result.stdout
+    assert "onboarding[eligibility]: allowed" in result.stdout
+    assert f"onboarding[readiness]: {readiness}" in result.stdout
+    assert log.read_text(encoding="utf-8").splitlines()[-1] == "onboard --route generate"
+
+
+def test_powershell_upgrade_preserves_leo_ppt_home_with_special_paths(tmp_path: Path):
+    source = _make_source(tmp_path / "source 'quoted' path")
+    target = tmp_path / "install 'quoted' path" / "leo-ppt-generator"
+    leo_ppt_home = tmp_path / "配置 'quoted' home"
+    leo_ppt_home.mkdir()
+    config_file = leo_ppt_home / "config.yaml"
+    config_file.write_text("preserve: this-config\n", encoding="utf-8")
+    environment = {"LEO_PPT_HOME": str(leo_ppt_home)}
+
+    installed, installed_target, _ = _run_windows_installer(
+        tmp_path,
+        source,
+        extra_env=environment,
+        target=target,
+    )
+    upgraded, upgraded_target, _ = _run_windows_installer(
+        tmp_path,
+        source,
+        "-Upgrade",
+        extra_env=environment,
+        target=target,
+    )
+
+    assert installed.returncode == 0, installed.stderr
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert installed_target == upgraded_target == target
+    assert (target / "SKILL.md").is_file()
+    assert config_file.read_text(encoding="utf-8") == "preserve: this-config\n"

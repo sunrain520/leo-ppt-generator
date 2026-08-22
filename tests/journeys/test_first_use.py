@@ -185,7 +185,10 @@ def test_mask_and_ocr_are_disclosed_only_when_the_route_needs_them(tmp_path: Pat
     )
 
     assert code == 2
-    assert {item["provider"] for item in mask["provider_options"]} == {"openai"}
+    assert {item["provider"] for item in mask["provider_options"]} == {
+        "openai",
+        "openai-compatible",
+    }
     assert generate["optional_services"] == []
     assert editable["optional_services"][0]["service"] == "paddleocr"
     assert editable["optional_services"][0]["required"] is False

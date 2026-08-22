@@ -12,22 +12,13 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / "skills/leo-ppt-generator/runtime"
 
 
-def _cleanup_release_debris() -> None:
-    for path in (
-        RUNTIME / "build",
-        RUNTIME / "src/leo_ppt_generator_runtime.egg-info",
-    ):
-        if path.is_dir():
-            shutil.rmtree(path)
-
-
 def _build_wheel(tmp_path: Path) -> Path:
     source = tmp_path / "runtime"
     shutil.copytree(
         RUNTIME,
         source,
         ignore=shutil.ignore_patterns(
-            "__pycache__", "*.pyc", "*.pyo", "build", "dist", "*.egg-info"
+            ".venv", "__pycache__", "*.pyc", "*.pyo", "build", "dist", "*.egg-info"
         ),
     )
     out = tmp_path / "dist"
@@ -44,9 +35,6 @@ def _build_wheel(tmp_path: Path) -> Path:
         text=True,
         check=False,
     )
-    # setuptools 可能在 checkout 的 runtime 旁写入 build/egg-info；发布测试
-    # 必须在断言和退出前恢复 source tree 的 clean inventory。
-    _cleanup_release_debris()
     assert completed.returncode == 0, completed.stdout + completed.stderr
     wheels = list(out.glob("*.whl"))
     assert len(wheels) == 1
@@ -54,17 +42,29 @@ def _build_wheel(tmp_path: Path) -> Path:
 
 
 def test_source_tree_has_no_release_debris():
-    _cleanup_release_debris()
-    debris = []
-    for path in (ROOT / "skills/leo-ppt-generator").rglob("*"):
-        if (
-            path.is_dir()
-            and (
-                path.name in {"__pycache__", "build", "dist", "third_party"}
-                or path.name.endswith(".egg-info")
-            )
-        ) or (path.is_file() and path.suffix in {".pyc", ".pyo"}):
-            debris.append(path.relative_to(ROOT).as_posix())
+    completed = subprocess.run(
+        ["git", "ls-files", "-z", "--", "skills/leo-ppt-generator"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    tracked_paths = [
+        ROOT / relative_path
+        for relative_path in completed.stdout.split("\0")
+        if relative_path
+    ]
+    debris = [
+        path.relative_to(ROOT).as_posix()
+        for path in tracked_paths
+        if path.suffix in {".pyc", ".pyo"}
+        or any(
+            part in {"__pycache__", "build", "dist", "third_party"}
+            or part.endswith(".egg-info")
+            for part in path.relative_to(ROOT).parts
+        )
+    ]
     assert not debris
 
 

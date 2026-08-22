@@ -73,6 +73,7 @@ class RunIndex:
                     "status": "created",
                     "stage": "created",
                     "domains": {},
+                    "supplemental_inputs": {},
                     "operations": {},
                 },
             )
@@ -99,6 +100,7 @@ class RunIndex:
         runtime_identity: str,
         idempotency_key: str | None = None,
         office_trusted: bool = False,
+        project_root: str | Path | None = None,
     ) -> RunCreation:
         """创建计划稳定合同的 run，并冻结所有恢复所需输入。"""
         from ..config.backend_contract import BackendRegistry
@@ -138,6 +140,36 @@ class RunIndex:
         if backend_value.get("mode") != expected_mode:
             raise ContractError("backend_mode_route_mismatch")
 
+        owner = cls(output_dir)
+        requested_project_root = Path(project_root) if project_root else None
+        if requested_project_root is not None and (
+            requested_project_root.is_symlink()
+            or any(
+                (requested_project_root / directory).is_symlink()
+                for directory in ("sources", "contracts", "samples", "runs", "deliveries")
+            )
+        ):
+            raise ContractError("project_path_untrusted")
+        resolved_project_root = (
+            requested_project_root.resolve() if requested_project_root is not None else None
+        )
+        if resolved_project_root is not None:
+            runs_root = (resolved_project_root / "runs").resolve()
+            try:
+                relative_run = owner.run_dir.relative_to(runs_root)
+            except ValueError as exc:
+                raise ContractError("run_output_outside_project") from exc
+            if not relative_run.parts:
+                raise ContractError("run_output_outside_project")
+            for identity, directory, reason_code in (
+                (source_identity, "sources", "input_outside_project"),
+                (backend_identity, "contracts", "backend_contract_outside_project"),
+            ):
+                try:
+                    identity["path"].relative_to((resolved_project_root / directory).resolve())
+                except ValueError as exc:
+                    raise ContractError(reason_code) from exc
+
         fingerprint_payload = {
             "schema_version": 1,
             "route": route,
@@ -147,8 +179,14 @@ class RunIndex:
             "runtime_identity": runtime_identity,
             "office_trusted": office_trusted,
         }
+        if resolved_project_root is not None:
+            fingerprint_payload["project_root"] = str(resolved_project_root)
         fingerprint = sha256_bytes(canonical_json(fingerprint_payload).encode())
-        owner = cls(output_dir)
+        if resolved_project_root is not None:
+            for directory in ("sources", "contracts", "samples", "runs", "deliveries"):
+                path = resolved_project_root / directory
+                path.mkdir(parents=True, exist_ok=True, mode=0o700)
+                os.chmod(path, 0o700)
         owner.run_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(owner.run_dir, 0o700)
         with owner.lock:
@@ -194,6 +232,7 @@ class RunIndex:
                     "stage": "created",
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     "output_dir": str(owner.run_dir),
+                    "project_root": str(resolved_project_root) if resolved_project_root else None,
                     "idempotency_key": idempotency_key,
                     "request_fingerprint": fingerprint,
                     "input": {
@@ -220,6 +259,7 @@ class RunIndex:
                     "selected_pages": [],
                     "page_order": [],
                     "notes": {},
+                    "supplemental_inputs": {},
                     "domains": {
                         "image": {"path": "image-deck"},
                         "editable": {"path": "editable"},
@@ -275,6 +315,40 @@ class RunIndex:
             return current
 
         return self._mutate(apply)
+
+    def checkpoint_readiness_pause(
+        self,
+        *,
+        expected_revision: int,
+        stage: str,
+        required_capabilities: tuple[str, ...] = (),
+        operation_id: str | None = None,
+        artifact_refs: tuple[str, ...] = (),
+        recovery_ref: str | None = None,
+    ) -> dict[str, Any]:
+        """原子记录非敏感 readiness 暂停 checkpoint；不保存用户材料或 secret。
+
+        用于 Host_Readiness_Guard 在图片节点暂停；复查 allowed 后清除 pause
+        并从同一节点恢复。
+        """
+
+        checkpoint = {
+            "stage": stage,
+            "required_capabilities": list(required_capabilities),
+            "operation_id": operation_id,
+            "artifact_refs": list(artifact_refs),
+            "recovery_ref": recovery_ref,
+        }
+        return self.update(
+            expected_revision=expected_revision,
+            changes={"readiness_pause": checkpoint},
+        )
+
+    def clear_readiness_pause(self, *, expected_revision: int) -> dict[str, Any]:
+        return self.update(
+            expected_revision=expected_revision,
+            changes={"readiness_pause": None},
+        )
 
     def reconcile(
         self,

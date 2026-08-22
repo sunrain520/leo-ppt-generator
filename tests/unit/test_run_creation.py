@@ -57,6 +57,111 @@ def test_create_from_request_copies_and_freezes_inputs_and_replays(tmp_path):
     assert replay.index.snapshot()["run_id"] == snapshot["run_id"]
 
 
+def test_create_from_request_scopes_run_under_project_root(tmp_path):
+    project_root = tmp_path / "project"
+    source = project_root / "sources" / "brief.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Deck\n", encoding="utf-8")
+    backend = project_root / "contracts" / "backend.json"
+    backend.parent.mkdir(parents=True)
+    write_backend(backend)
+    run_dir = project_root / "runs" / "run-001"
+
+    creation = RunIndex.create_from_request(
+        run_dir,
+        route="generate",
+        input_path=source,
+        backend_contract_path=backend,
+        runtime_identity="runtime-a",
+        project_root=project_root,
+    )
+
+    snapshot = creation.index.snapshot()
+    assert snapshot["project_root"] == str(project_root.resolve())
+    assert snapshot["output_dir"] == str(run_dir.resolve())
+    assert all(
+        (project_root / name).is_dir()
+        for name in ("sources", "contracts", "samples", "runs", "deliveries")
+    )
+
+
+def test_create_from_request_rejects_run_outside_project_root(tmp_path):
+    project_root = tmp_path / "project"
+    source = project_root / "sources" / "brief.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Deck\n", encoding="utf-8")
+    backend = project_root / "contracts" / "backend.json"
+    backend.parent.mkdir(parents=True)
+    write_backend(backend)
+
+    with pytest.raises(ContractError, match="run_output_outside_project"):
+        RunIndex.create_from_request(
+            tmp_path / "run-001",
+            route="generate",
+            input_path=source,
+            backend_contract_path=backend,
+            runtime_identity="runtime-a",
+            project_root=project_root,
+        )
+
+
+@pytest.mark.parametrize(
+    ("external_kind", "reason_code"),
+    (
+        ("source", "input_outside_project"),
+        ("backend", "backend_contract_outside_project"),
+    ),
+)
+def test_create_from_request_rejects_inputs_outside_project_directories(
+    tmp_path, external_kind, reason_code
+):
+    project_root = tmp_path / "project"
+    source = project_root / "sources" / "brief.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Deck\n", encoding="utf-8")
+    backend = project_root / "contracts" / "backend.json"
+    backend.parent.mkdir(parents=True)
+    write_backend(backend)
+    if external_kind == "source":
+        source = tmp_path / "external.md"
+        source.write_text("# External\n", encoding="utf-8")
+    else:
+        backend = write_backend(tmp_path / "external-backend.json")
+
+    with pytest.raises(ContractError, match=reason_code):
+        RunIndex.create_from_request(
+            project_root / "runs" / "run-001",
+            route="generate",
+            input_path=source,
+            backend_contract_path=backend,
+            runtime_identity="runtime-a",
+            project_root=project_root,
+        )
+
+
+def test_create_from_request_rejects_project_directory_symlink_escape(tmp_path):
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (project_root / "sources").symlink_to(outside, target_is_directory=True)
+    source = outside / "brief.md"
+    source.write_text("# Deck\n", encoding="utf-8")
+    backend = project_root / "contracts" / "backend.json"
+    backend.parent.mkdir()
+    write_backend(backend)
+
+    with pytest.raises(ContractError, match="project_path_untrusted"):
+        RunIndex.create_from_request(
+            project_root / "runs" / "run-001",
+            route="generate",
+            input_path=source,
+            backend_contract_path=backend,
+            runtime_identity="runtime-a",
+            project_root=project_root,
+        )
+
+
 def test_create_from_request_rejects_same_key_with_changed_fingerprint(tmp_path):
     source = tmp_path / "brief.md"
     source.write_text("one", encoding="utf-8")

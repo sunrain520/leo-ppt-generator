@@ -68,7 +68,7 @@ def test_readme_and_user_guide_cover_install_config_routes_recovery_and_validati
         "codex plugin marketplace add",
         "leo-bootstrap.sh",
         "leo-bootstrap.ps1",
-        "auth add --provider openai",
+        "config provider configure --provider openai",
         "generate",
         "direct-editable",
         "upgrade-full",
@@ -145,7 +145,7 @@ def test_documented_config_and_backend_examples_match_v1_contracts():
     config_block = guide.split("```yaml\n", 1)[1].split("```", 1)[0]
     config = yaml.safe_load(config_block)
     assert config["schema_version"] == 1
-    assert 1 <= config["max_concurrent_workers"] <= 16
+    assert config["max_concurrent_workers"] == 5
 
     backend_block = guide.split("```json\n", 1)[1].split("```", 1)[0]
     backend = json.loads(backend_block)
@@ -239,10 +239,14 @@ def test_repo_marketplace_exposes_the_root_plugin_without_a_second_skill_tree():
     assert len(marketplace["plugins"]) == 1
     plugin = marketplace["plugins"][0]
     assert plugin["name"] == "leo-ppt-generator"
-    assert plugin["source"] == {"source": "local", "path": "./"}
+    assert plugin["source"] == {
+        "source": "url",
+        "url": "https://github.com/sunrain520/leo-ppt-generator.git",
+        "ref": "feat/leo-ppt-generator-release",
+    }
     assert plugin["policy"] == {
         "installation": "AVAILABLE",
-        "authentication": "ON_USE",
+        "authentication": "ON_INSTALL",
     }
 
 
@@ -255,6 +259,14 @@ def test_documented_public_commands_exist_in_current_cli_help():
     for arguments, anchors in (
         (("auth", "add", "--help"), ("--provider", "--overwrite")),
         (("setup", "--help"), ("--host-imagegen", "--ocr-requirement")),
+        (
+            ("config", "--help"),
+            ("status", "verify", "repair", "change"),
+        ),
+        (
+            ("config", "status", "--help"),
+            ("--route", "--json"),
+        ),
     ):
         result = subprocess.run(
             [sys.executable, "-m", "leo_ppt_generator", *arguments],

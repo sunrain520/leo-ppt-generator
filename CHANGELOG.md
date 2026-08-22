@@ -18,6 +18,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   release manifest；Plugin 与 standalone 强制使用同一 Skill tree hash。
 - 简化首次使用流程：Agent 自动 bootstrap/setup，README 只保留 Plugin/standalone
   安装、自然语言首次任务和按需密钥三档。
+- 新增统一 `leo-ppt config` 用户合同及能力级 verification receipt：本地配置完整后以
+  `configured_unverified` 允许开始任务；可能计费的 `verify` 仅接受当前操作的明确同意，
+  首张真实业务图片通过 single-flight 完成惰性验证。
+- 新增顶层 `version`、`update`、`rollback`，以及统一的
+  `config provider`、`config credential` 命令树；历史 `auth`、顶层 `provider` 和
+  `config change` 降级为兼容入口。
+- 同步用户文档、兼容性、故障处理、限制与测试说明：统一 `config status/verify/repair/change`
+  路径，明确 Host capability 三态、凭据安全通道、非破坏式升级恢复和现场证据上限。
 
 ### Added - 2026-08-21
 

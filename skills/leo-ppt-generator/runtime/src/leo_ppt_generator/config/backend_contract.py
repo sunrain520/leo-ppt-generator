@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
+
+from .provider_registry import (
+    ProviderDefinition,
+    ProviderRegistry as ProviderPolicyRegistry,
+    VerificationPolicy,
+)
 
 
 class BackendContractError(ValueError):
@@ -18,50 +25,49 @@ class Backend:
     credential_environment: frozenset[str]
     default_model: str
     max_reference_images: int
+    definition: ProviderDefinition | None = None
+
+    @property
+    def verification_policy(self) -> VerificationPolicy | None:
+        return None if self.definition is None else self.definition.verification_policy
 
 
 class BackendRegistry:
-    def __init__(self, backends: tuple[Backend, ...]) -> None:
+    def __init__(
+        self,
+        backends: tuple[Backend, ...],
+        provider_registry: ProviderPolicyRegistry | None = None,
+    ) -> None:
         self._backends = {backend.name: backend for backend in backends}
+        self._provider_registry = provider_registry
 
     @classmethod
     def default(cls) -> BackendRegistry:
-        return cls(
-            (
-                Backend(
-                    "fixture",
-                    "openai-compatible",
-                    frozenset({"generate", "edit", "reference"}),
-                    frozenset(),
-                    "fixture-model",
-                    4,
+        return cls.from_provider_registry(ProviderPolicyRegistry.default())
+
+    @classmethod
+    def from_provider_registry(
+        cls, provider_registry: ProviderPolicyRegistry
+    ) -> BackendRegistry:
+        backends = tuple(
+            Backend(
+                name=definition.name,
+                backend_kind=definition.adapter.backend_kind,
+                capabilities=frozenset(
+                    capability.value for capability in definition.supported_capabilities
                 ),
-                Backend(
-                    "builtin-imagegen",
-                    "builtin-imagegen",
-                    frozenset({"generate", "edit", "mask", "reference"}),
-                    frozenset(),
-                    "gpt-image-2",
-                    16,
-                ),
-                Backend(
-                    "openai",
-                    "openai-compatible",
-                    frozenset({"generate", "edit", "mask", "reference"}),
-                    frozenset({"OPENAI_API_KEY"}),
-                    "gpt-image-2",
-                    16,
-                ),
-                Backend(
-                    "atlascloud",
-                    "atlascloud",
-                    frozenset({"generate", "edit", "reference"}),
-                    frozenset({"ATLASCLOUD_API_KEY"}),
-                    "gpt-image-2",
-                    4,
-                ),
+                credential_environment=definition.credential_environments,
+                default_model=definition.default_model,
+                max_reference_images=definition.max_reference_images,
+                definition=definition,
             )
+            for definition in provider_registry.definitions(include_internal=True)
         )
+        return cls(backends, provider_registry)
+
+    @property
+    def provider_registry(self) -> ProviderPolicyRegistry | None:
+        return self._provider_registry
 
     def select(self, name: str, *, required: set[str]) -> Backend:
         try:
@@ -93,6 +99,7 @@ class BackendRegistry:
         selection_source: str = "user-confirmed",
         credential_source: str | None = None,
         credential_ref: str | None = None,
+        endpoint_origin: str | None = None,
     ) -> dict[str, Any]:
         """从静态 registry 生成完整合同，并用同一 loader 自校验。"""
 
@@ -128,6 +135,8 @@ class BackendRegistry:
         }
         if resolved_credential_ref is not None:
             contract["credential_ref"] = resolved_credential_ref
+        if endpoint_origin is not None:
+            contract["endpoint_origin"] = endpoint_origin
         self.load(contract, required={mode})
         return contract
 
@@ -212,4 +221,13 @@ class BackendRegistry:
             raise BackendContractError("credential_reference_invalid")
         if value.get("selection_source") not in {"user-confirmed", "fallback-policy"}:
             raise BackendContractError("backend_selection_source_invalid")
+        endpoint = value.get("endpoint_origin")
+        if backend.name == "openai-compatible":
+            if not isinstance(endpoint, str) or not endpoint:
+                raise BackendContractError("endpoint_origin_required")
+            parsed = urlsplit(endpoint)
+            if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+                raise BackendContractError("endpoint_origin_invalid")
+        elif endpoint is not None:
+            raise BackendContractError("endpoint_origin_unsupported")
         return backend

@@ -1,5 +1,26 @@
 # 已知限制
 
+## 配置、验证与凭据边界
+
+- `config status` 只证明本地配置、凭据引用、当前 route 与 receipt 的可解释性，不调用
+  Provider，也不证明网络、账户权限、模型、图片质量或费用状态。
+- `configured_unverified` 表示本地配置完整且可开始任务；首张真实业务图片才会在当前
+  Verification Scope 内惰性验证。`ready` 仅覆盖已有有效 Capability Evidence 的当前
+  route/能力，或当前宿主现场确认的 Host Provider；`generate` 的证据不能外推到
+  `edit`、`mask`、`reference` 或其他 Provider/模型。
+- 付费 `config verify --yes` 在 v1 仅验证 `generate`，且只在用户对当前操作明确同意后执行；
+  当前 runtime 未接入真实 smoke executor 时会返回 `provider_smoke_executor_unavailable`，
+  不会把本地状态复查伪装成真实验证。
+  默认回车、超时、取消、安装、更新和宿主调用均不构成同意；跳过 smoke 不应阻断开始任务。
+- 同一 Verification Scope 在尚无有效证据时最多允许一个可能计费请求在途。该机制降低
+  并发重复验证风险，但不承诺外部 Provider 的长期 SLA、价格、配额、幂等或结果可恢复性；
+  Registry 未明确声明的策略一律为 `unknown` 并 fail closed。
+- 真实业务图片成功但 Capability Evidence 原子写入失败时，图片和任务上下文会保留，当前
+  route 仍不能声明 `ready`；恢复只能重试本地 receipt 持久化，不能再次调用 Provider。
+- 密钥只能来自真实 TTY 隐藏输入、既有环境变量引用或用户显式 `--key-stdin`。平台安全
+  存储失败时不会降级为明文文件；本项目也不支持在聊天、命令参数、URL、普通 stdin 或
+  项目配置中提交密钥。
+
 ## PowerPoint 主题与母版语义
 
 editable 路线提供的是视觉重建与对象级可编辑交付，不承诺保留输入 PPTX 的主题、母版、

@@ -1,0 +1,336 @@
+{
+  "pbtResults": {
+    "2.6 编写 Property 6 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430487370
+    },
+    "2.7 编写 Property 9 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430493256
+    },
+    "2.8 编写 Property 11 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430499395
+    },
+    "2.9 编写 Property 19 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430505299
+    },
+    "2.10 编写 Property 32 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430510319
+    },
+    "2.11 编写 Property 34 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430527623
+    },
+    "3.3 编写 Property 1 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430534008
+    },
+    "3.4 编写 Property 2 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430544749
+    },
+    "3.5 编写 Property 3 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430550814
+    },
+    "3.6 编写 Property 4 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430556537
+    },
+    "3.7 编写 Property 15 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430564591
+    },
+    "3.8 编写 Property 16 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430570987
+    },
+    "3.9 编写 Property 17 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430576323
+    },
+    "3.10 编写 Property 18 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430580447
+    },
+    "3.11 编写 Property 33 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430587740
+    },
+    "4.5 编写 Property 5 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430598723
+    },
+    "4.6 编写 Property 10 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430603789
+    },
+    "4.7 编写 Property 12 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430608827
+    },
+    "5.4 编写 Property 13 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430613489
+    },
+    "5.5 编写 Property 14 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430617767
+    },
+    "5.6 编写 Property 21 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430638295
+    },
+    "5.7 编写 Property 22 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430643783
+    },
+    "5.8 编写 Property 25 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430779208
+    },
+    "6.3 编写 Property 23 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430793493
+    },
+    "6.4 编写 Property 24 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430797732
+    },
+    "7.3 编写 Property 8 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430806939
+    },
+    "7.4 编写 Property 30 的 rule-based state machine test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430813360
+    },
+    "7.5 编写 Property 31 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430819082
+    },
+    "8.2 编写 Property 20 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430823659
+    },
+    "8.3 编写 Property 35 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430828157
+    },
+    "10.4 编写 Property 26 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430833354
+    },
+    "10.5 编写 Property 27 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430839242
+    },
+    "11.4 编写 Property 28 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430847103
+    },
+    "11.5 编写 Property 29 的 property-based test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430852620
+    },
+    "12.2 编写 Property 36 的 property-based test": {
+      "status": "not_run",
+      "lastRunTimestamp": 1787434657548
+    },
+    "13.1 编写 Property 7 的 property-based security test": {
+      "status": "passed",
+      "lastRunTimestamp": 1787430865229
+    }
+  },
+  "executionHistory": {
+    "10.2 在 POSIX 安装器中加入激活后的 onboarding": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423888746
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423895765
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787424715703
+      }
+    ],
+    "10.3 在 PowerShell 安装器中加入等价 onboarding": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423888828
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423898949
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787424718783
+      }
+    ],
+    "10.6 扩展 installer/release 自动化测试": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423888860
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787424728528
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425441629
+      }
+    ],
+    "11.6 扩展 Codex、Claude、Kiro skill eval": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423888885
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425468036
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425777938
+      }
+    ],
+    "13.2 编写 macOS arm64 Keychain 平台集成测试": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423888911
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787424732699
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425446504
+      }
+    ],
+    "13.3 编写 Windows x64 DPAPI/ACL 平台集成测试": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787423888939
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787424735590
+      },
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425454457
+      }
+    ],
+    "10. 接入安装与更新后的 Post_Activation_Onboarding": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425441656
+      }
+    ],
+    "13. 补齐安全 canary、平台集成与成本安全验证": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425454481
+      }
+    ],
+    "11. 实现 Host_Readiness_Guard 与原任务恢复": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425777965
+      }
+    ],
+    "2. 实现 schema v1、敏感字段防线与跨平台凭据边界": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425809514
+      }
+    ],
+    "3. 实现 Receipt Store 与纯 readiness 状态内核": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425817136
+      }
+    ],
+    "4. 实现 ConfigService、向导与 CLI/状态协议": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425821111
+      }
+    ],
+    "5. 实现 generate-only smoke 与业务图片惰性验证包装器": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425826306
+      }
+    ],
+    "6. 实现 Verification_Scope single-flight 与本地 evidence 恢复": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425830247
+      }
+    ],
+    "7. 实现配置事务、repair 和 Provider change 的崩溃一致性": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425834528
+      }
+    ],
+    "8. 将 Registry 和 Route 单一真值接入 setup 与执行器": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425840841
+      }
+    ],
+    "12. 同步统一入口文档、帮助与 Reason_Code 合同": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425847129
+      }
+    ],
+    "14. 收敛旧入口、完成端到端 wiring 与验证矩阵": [
+      {
+        "executionId": "c8139046-9609-45e7-a14a-17525afb004f",
+        "chatSessionId": "sess_a68434f9-7cc3-4b3d-8699-b0f9cdf177e8",
+        "timestamp": 1787425858308
+      }
+    ]
+  }
+}

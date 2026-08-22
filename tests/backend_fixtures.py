@@ -26,6 +26,19 @@ def backend_contract(provider: str = "fixture", *, mode: str = "generate") -> di
                 "execution_owner": "runtime",
             },
         },
+        "openai-compatible": {
+            "backend_kind": "openai-compatible",
+            "credential_source": "environment-reference",
+            "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+            "endpoint_origin": "https://proxy.example.com/v1",
+            "capabilities": {
+                "generate": True,
+                "edit": True,
+                "mask": True,
+                "max_reference_images": 16,
+                "execution_owner": "runtime",
+            },
+        },
         "atlascloud": {
             "backend_kind": "atlascloud",
             "credential_source": "environment-reference",

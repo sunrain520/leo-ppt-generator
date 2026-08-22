@@ -1,0 +1,106 @@
+{
+  "$id": "leo-ppt-generator/verification-receipt/v1",
+  "title": "Leo PPT verification receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "schema_version",
+    "provider",
+    "endpoint_origin",
+    "model",
+    "credential_version",
+    "runtime_identity",
+    "adapter_version",
+    "verification_policy_version",
+    "verification_fingerprint",
+    "capability_evidence"
+  ],
+  "properties": {
+    "protocol": {"const": "leo-ppt-verification-receipt/v1"},
+    "schema_version": {"const": 1},
+    "provider": {"enum": ["openai", "openai-compatible", "atlascloud"]},
+    "endpoint_origin": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "model": {"type": ["string", "null"], "minLength": 1},
+    "credential_version": {"type": "string", "minLength": 1},
+    "runtime_identity": {"type": "string", "minLength": 1},
+    "adapter_version": {"type": "string", "minLength": 1},
+    "verification_policy_version": {"type": "integer", "minimum": 1},
+    "verification_fingerprint": {"$ref": "#/$defs/sha256"},
+    "capability_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "generate": {"$ref": "#/$defs/generate_evidence"},
+        "edit": {"$ref": "#/$defs/edit_evidence"},
+        "mask": {"$ref": "#/$defs/mask_evidence"},
+        "reference": {"$ref": "#/$defs/reference_evidence"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "verified_at",
+        "expires_at",
+        "operation_id",
+        "verification_source",
+        "artifact_digest"
+      ],
+      "properties": {
+        "capability": {"enum": ["generate", "edit", "mask", "reference"]},
+        "verified_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "operation_id": {"type": "string", "minLength": 1},
+        "verification_source": {
+          "enum": ["provider_smoke", "business_request"]
+        },
+        "artifact_digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "media_type", "size_bytes"],
+          "properties": {
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "media_type": {"type": "string", "minLength": 1},
+            "size_bytes": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "generate_evidence": {
+      "allOf": [
+        {"$ref": "#/$defs/evidence"},
+        {"properties": {"capability": {"const": "generate"}}}
+      ]
+    },
+    "edit_evidence": {
+      "allOf": [
+        {"$ref": "#/$defs/evidence"},
+        {"properties": {"capability": {"const": "edit"}}}
+      ]
+    },
+    "mask_evidence": {
+      "allOf": [
+        {"$ref": "#/$defs/evidence"},
+        {"properties": {"capability": {"const": "mask"}}}
+      ]
+    },
+    "reference_evidence": {
+      "allOf": [
+        {"$ref": "#/$defs/evidence"},
+        {"properties": {"capability": {"const": "reference"}}}
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -22,14 +23,26 @@ from .application.routes import (
 from .application.run_index import IdempotencyConflict, RevisionConflict, RunIndex
 from .backend_execution import BackendExecutionError
 from .config.backend_contract import BackendContractError, BackendRegistry
+from .config.provider_registry import ProviderRegistry
+from .config.receipt_store import FileReceiptStore
+from .config.models import ProviderName
+from .config.service import ConfigService, ConfigServiceError, StatusRequest
+from .config.wizard import ConfigWizard, WizardCancelled
 from .config.runtime_config import (
     RuntimeConfigError,
     assert_run_quota,
+    configure_openai_compatible_profile,
     default_home,
     load_runtime_config,
+    openai_compatible_profile,
 )
 from .contracts import ContractError, PageArtifact
-from .credentials import PROVIDERS, CredentialError, credential_manager
+from .credentials import (
+    PROVIDERS,
+    CredentialError,
+    CredentialInputResolver,
+    credential_manager,
+)
 from .editable.adapter import EditableAdapter
 from .evidence import EvidenceError, record_acceptance, record_provenance, record_visual
 from .hybrid.assembler import HybridAssembler
@@ -46,7 +59,9 @@ from .setup import SetupContractError, build_setup_report, render_setup_report
 from .storage import (
     atomic_write_json,
     canonical_json,
+    durable_copy_file,
     fsync_directory,
+    inspect_regular_file,
     secure_user_tree,
     sha256_bytes,
 )
@@ -59,6 +74,7 @@ from .upgrade.baseline import (
 from .upstream_bridge import CODEX_TOOLS, UpstreamBridgeError, run_upstream
 
 PROTOCOL = "leo-ppt-machine/v1"
+MAX_SLIDES_CONTRACT_BYTES = 1024 * 1024
 
 
 def _duration_seconds(value: str) -> float:
@@ -91,6 +107,128 @@ def envelope(status: str, reason_code: str, **payload: Any) -> dict[str, Any]:
         else [],
     )
     return result
+
+
+def _version_report() -> dict[str, Any]:
+    """返回不读取配置、不访问网络的版本合同。"""
+
+    runtime_identity = None
+    bundle_root = None
+    try:
+        current = json.loads((default_home() / "current").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        current = {}
+    if isinstance(current.get("runtime_identity"), str):
+        runtime_identity = current["runtime_identity"]
+    if isinstance(current.get("bundle_root"), str):
+        bundle_root = current["bundle_root"]
+    normalized_bundle = str(bundle_root or "").replace("\\", "/")
+    if "/plugins/" in normalized_bundle:
+        install_channel = "plugin"
+    elif "/.agents/skills/" in normalized_bundle:
+        install_channel = "agent-skill"
+    elif bundle_root:
+        install_channel = "standalone"
+    else:
+        install_channel = "unknown"
+    return {
+        "protocol": "leo-ppt-version/v1",
+        "schema_version": 1,
+        "status": "ready",
+        "reason_code": "version_reported",
+        "package_version": __version__,
+        "runtime_version": __version__,
+        "runtime_identity": runtime_identity,
+        "install_channel": install_channel,
+        "config_schema_version": 1,
+        "setup_schema_version": 1,
+        "cli_path": str(Path(sys.argv[0]).resolve()) if sys.argv else None,
+    }
+
+
+def _runtime_manager_metadata() -> tuple[Path, Path] | None:
+    """读取安装 manager 的受管 current 元数据。"""
+
+    current_path = default_home() / "current"
+    try:
+        value = json.loads(current_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    manager = value.get("runtime_manager")
+    bundle = value.get("bundle_root")
+    if not isinstance(manager, str) or not isinstance(bundle, str):
+        return None
+    manager_path = Path(manager).expanduser().resolve()
+    bundle_path = Path(bundle).expanduser().resolve()
+    if not manager_path.is_file() or not bundle_path.is_dir():
+        return None
+    return manager_path, bundle_path
+
+
+def _dispatch_runtime_lifecycle(args: argparse.Namespace) -> dict[str, Any]:
+    metadata = _runtime_manager_metadata()
+    if metadata is None:
+        return envelope(
+            "blocked",
+            "runtime_manager_unavailable",
+            primary_action={"kind": "run_cli", "command": "重新运行安装器或 bootstrap"},
+        )
+    manager, _bundle = metadata
+    command = [sys.executable, str(manager)]
+    confirmation_required = False
+    if args.command == "update":
+        ref = args.version or "main"
+        if args.check:
+            command.extend(["check", "--ref", ref])
+        elif not args.dry_run and not args.yes:
+            confirmation_required = True
+            command.extend(["check", "--ref", ref])
+        else:
+            command.extend(["update", "--ref", ref])
+            if args.dry_run:
+                command.append("--dry-run")
+    else:
+        command.extend(["rollback"])
+        if args.identity:
+            command.extend(["--identity", args.identity])
+    try:
+        result = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            timeout=900,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return envelope("blocked", "runtime_lifecycle_unavailable", message=str(exc))
+    stream = result.stdout if result.stdout.strip() else result.stderr
+    try:
+        payload = json.loads(stream)
+    except (TypeError, json.JSONDecodeError):
+        return envelope(
+            "blocked",
+            "runtime_lifecycle_protocol_invalid",
+            details={"stdout": result.stdout[-2000:], "stderr": result.stderr[-2000:]},
+        )
+    if not isinstance(payload, dict):
+        return envelope("blocked", "runtime_lifecycle_protocol_invalid")
+    if confirmation_required:
+        return envelope(
+            "action_required",
+            "update_confirmation_required",
+            runtime=payload,
+            primary_action={"kind": "run_cli", "command": "leo-ppt update --yes"},
+        )
+    status = "ready" if result.returncode == 0 else "blocked"
+    reason = str(
+        payload.get(
+            "reason_code",
+            "runtime_update_checked" if args.command == "update" else "runtime_rolled_back",
+        )
+    )
+    if result.returncode != 0:
+        reason = str(payload.get("reason_code", "runtime_lifecycle_failed"))
+    return envelope(status, reason, runtime=payload)
 
 
 def doctor_report(route: str | None) -> dict[str, Any]:
@@ -157,8 +295,9 @@ def doctor_report(route: str | None) -> dict[str, Any]:
     }
     provider_available = any(
         credential_references[provider]["status"] == "available"
-        for provider in ("openai", "atlascloud")
+        for provider in ("openai", "openai-compatible", "atlascloud")
     )
+    compatible_profile = openai_compatible_profile() if config_error is None else None
     readiness = {
         "local_runtime": {"status": "ready", "reason_code": "package_import_passed"},
         "config": config_report,
@@ -217,6 +356,13 @@ def doctor_report(route: str | None) -> dict[str, Any]:
         readiness=readiness,
         readiness_summary=readiness_summary,
         credential_references=credential_references,
+        provider_profiles={
+            "openai-compatible": {
+                "status": "available" if compatible_profile else "missing",
+                "endpoint_origin": compatible_profile.get("endpoint_origin") if compatible_profile else None,
+                "model": compatible_profile.get("model") if compatible_profile else None,
+            }
+        },
         warnings=warnings,
     )
 
@@ -273,6 +419,76 @@ def _state_hash(run: dict[str, Any]) -> str:
 def _domain_path(run_path: str | Path, domain: str) -> Path:
     root = Path(run_path).resolve()
     return root / domain if (root / "run.json").is_file() else root
+
+
+def _delivery_output_path(run_path: str | Path, requested: str | None) -> str:
+    root = Path(run_path).resolve()
+    default = root / "final/deck.pptx"
+    if not (root / "run.json").is_file():
+        return str(Path(requested).resolve() if requested else default)
+    final_root = root / "final"
+    if final_root.is_symlink():
+        raise ContractError("output_path_untrusted")
+    target = Path(requested).resolve() if requested else default
+    try:
+        target.relative_to(final_root.resolve())
+    except ValueError as exc:
+        raise ContractError("output_outside_run") from exc
+    return str(target)
+
+
+def _freeze_slides_contract(run_path: str | Path, source_path: str | Path) -> Path:
+    root = Path(run_path).resolve()
+    source = Path(source_path)
+    if not (root / "run.json").is_file():
+        return source
+    try:
+        source_identity = inspect_regular_file(source, max_bytes=MAX_SLIDES_CONTRACT_BYTES)
+    except ValueError as exc:
+        raise ContractError(str(exc)) from exc
+    target = root / "input/slides.json"
+    try:
+        if target.is_file() or target.is_symlink():
+            frozen_identity = inspect_regular_file(
+                target, max_bytes=MAX_SLIDES_CONTRACT_BYTES
+            )
+            if frozen_identity["sha256"] != source_identity["sha256"]:
+                raise ContractError("slides_fingerprint_conflict")
+        else:
+            durable_copy_file(
+                source_identity["path"], target, max_bytes=MAX_SLIDES_CONTRACT_BYTES
+            )
+    except ValueError as exc:
+        raise ContractError(str(exc)) from exc
+
+    index = RunIndex(root)
+    snapshot = index.snapshot()
+    supplemental_inputs = snapshot.get("supplemental_inputs", {})
+    if not isinstance(supplemental_inputs, dict):
+        raise ContractError("run_index_invalid")
+    existing = supplemental_inputs.get("slides")
+    if existing is not None and not isinstance(existing, dict):
+        raise ContractError("run_index_invalid")
+    metadata = {
+        "original_path": (
+            existing.get("original_path")
+            if isinstance(existing, dict) and existing.get("original_path")
+            else str(source_identity["path"])
+        ),
+        "path": "input/slides.json",
+        "size": source_identity["size"],
+        "sha256": source_identity["sha256"],
+    }
+    if existing is not None and existing.get("sha256") != metadata["sha256"]:
+        raise ContractError("slides_fingerprint_conflict")
+    if existing != metadata:
+        supplemental_inputs = dict(supplemental_inputs)
+        supplemental_inputs["slides"] = metadata
+        index.update(
+            expected_revision=snapshot["revision"],
+            changes={"supplemental_inputs": supplemental_inputs},
+        )
+    return target
 
 
 def _require_prepare_input(run_path: str | Path) -> None:
@@ -742,6 +958,18 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--route")
     doctor.add_argument("--json", action="store_true")
 
+    version = subcommands.add_parser("version", help="查看版本与协议版本")
+    version.add_argument("--json", action="store_true")
+    update = subcommands.add_parser("update", help="检查或更新受管 runtime")
+    update.add_argument("--check", action="store_true")
+    update.add_argument("--dry-run", action="store_true")
+    update.add_argument("--version")
+    update.add_argument("--yes", action="store_true")
+    update.add_argument("--json", action="store_true")
+    rollback = subcommands.add_parser("rollback", help="回滚到健康 runtime")
+    rollback.add_argument("--identity")
+    rollback.add_argument("--json", action="store_true")
+
     setup = subcommands.add_parser("setup")
     setup.add_argument("--route", required=True)
     setup.add_argument(
@@ -750,7 +978,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="unknown",
     )
     setup.add_argument(
-        "--provider", choices=("builtin-imagegen", "openai", "atlascloud")
+        "--provider",
+        choices=("builtin-imagegen", "openai", "openai-compatible", "atlascloud"),
     )
     setup.add_argument("--require-mask", action="store_true")
     setup.add_argument(
@@ -765,6 +994,73 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--editable", action="store_true")
     route.add_argument("--upgrade", action="store_true")
     route.add_argument("--pages")
+
+    config = subcommands.add_parser("config")
+    config_commands = config.add_subparsers(dest="config_command")
+    config_status = config_commands.add_parser("status")
+    config_status.add_argument("--route")
+    config_status.add_argument("--json", action="store_true")
+    config_verify = config_commands.add_parser("verify")
+    config_verify.add_argument("--route")
+    config_verify.add_argument("--yes", action="store_true")
+    config_verify.add_argument("--json", action="store_true")
+    config_repair = config_commands.add_parser("repair")
+    config_repair.add_argument("--route")
+    config_repair.add_argument("--json", action="store_true")
+    config_change = config_commands.add_parser("change")
+    config_change.add_argument(
+        "--provider",
+        choices=("openai", "openai-compatible", "atlascloud"),
+    )
+    config_change.add_argument("--json", action="store_true")
+
+    config_provider = config_commands.add_parser("provider")
+    provider_commands = config_provider.add_subparsers(
+        dest="config_provider_command", required=True
+    )
+    provider_list = provider_commands.add_parser("list")
+    provider_list.add_argument("--route")
+    provider_list.add_argument("--json", action="store_true")
+    provider_configure = provider_commands.add_parser("configure")
+    provider_configure.add_argument(
+        "--provider",
+        choices=("openai", "openai-compatible", "atlascloud"),
+        required=True,
+    )
+    provider_configure.add_argument("--route")
+    provider_configure.add_argument("--json", action="store_true")
+    provider_select = provider_commands.add_parser("select")
+    provider_select.add_argument(
+        "--provider",
+        choices=("openai", "openai-compatible", "atlascloud"),
+        required=True,
+    )
+    provider_select.add_argument("--route")
+    provider_select.add_argument("--json", action="store_true")
+    provider_remove = provider_commands.add_parser("remove")
+    provider_remove.add_argument(
+        "--provider",
+        choices=("openai", "openai-compatible", "atlascloud"),
+        required=True,
+    )
+    provider_remove.add_argument("--confirm", action="store_true")
+    provider_remove.add_argument("--json", action="store_true")
+
+    config_credential = config_commands.add_parser("credential")
+    credential_commands = config_credential.add_subparsers(
+        dest="config_credential_command", required=True
+    )
+    credential_status = credential_commands.add_parser("status")
+    credential_status.add_argument("--provider")
+    credential_status.add_argument("--json", action="store_true")
+    credential_set = credential_commands.add_parser("set")
+    credential_set.add_argument("--provider", choices=tuple(PROVIDERS), required=True)
+    credential_set.add_argument("--overwrite", action="store_true")
+    credential_set.add_argument("--json", action="store_true")
+    credential_remove = credential_commands.add_parser("remove")
+    credential_remove.add_argument("--provider", choices=tuple(PROVIDERS), required=True)
+    credential_remove.add_argument("--confirm", action="store_true")
+    credential_remove.add_argument("--json", action="store_true")
 
     auth = subcommands.add_parser("auth")
     auth_commands = auth.add_subparsers(dest="auth_command", required=True)
@@ -784,7 +1080,7 @@ def build_parser() -> argparse.ArgumentParser:
     backend_create = backend_commands.add_parser("create")
     backend_create.add_argument(
         "--provider",
-        choices=("builtin-imagegen", "openai", "atlascloud"),
+        choices=("builtin-imagegen", "openai", "openai-compatible", "atlascloud"),
         required=True,
     )
     backend_create.add_argument("--mode", choices=("generate", "edit"), required=True)
@@ -794,11 +1090,19 @@ def build_parser() -> argparse.ArgumentParser:
     backend_validate = backend_commands.add_parser("validate")
     backend_validate.add_argument("contract")
 
+    provider = subcommands.add_parser("provider")
+    provider_commands = provider.add_subparsers(dest="provider_command", required=True)
+    provider_configure = provider_commands.add_parser("configure")
+    provider_configure.add_argument("--provider", choices=("openai-compatible",), required=True)
+    provider_configure.add_argument("--base-url", required=True)
+    provider_configure.add_argument("--model", required=True)
+
     run = subcommands.add_parser("run")
     run_commands = run.add_subparsers(dest="run_command", required=True)
     create = run_commands.add_parser("create")
     create.add_argument("--run-dir")
     create.add_argument("--output")
+    create.add_argument("--project-root")
     create.add_argument("--route", required=True)
     create.add_argument("--input")
     create.add_argument("--backend-contract")
@@ -1003,7 +1307,271 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _is_executable_console_script(path: Path, *, platform_name: str) -> bool:
+    return path.is_file() and (
+        platform_name == "nt" or os.access(path, os.X_OK)
+    )
+
+
+def _resolve_cli_path(*, platform_name: str | None = None) -> str | None:
+    """解析当前平台可直接执行的 console script，绝不返回猜测路径。"""
+
+    platform_name = platform_name or os.name
+    script_name = "leo-ppt.exe" if platform_name == "nt" else "leo-ppt"
+    candidates = (
+        os.environ.get("LEO_PPT_CLI_PROG"),
+        shutil.which(script_name),
+        str(Path(sys.executable).with_name(script_name)),
+    )
+    for value in candidates:
+        if not value:
+            continue
+        try:
+            candidate = Path(value).expanduser().resolve()
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if _is_executable_console_script(candidate, platform_name=platform_name):
+            return str(candidate)
+    return None
+
+
+def _module_action_materializer(shell):
+    """在无 console script 的模块运行场景中保留可执行恢复命令。"""
+
+    from .config.reason_codes import CommandRenderer
+
+    renderer = CommandRenderer(shell)
+    executable = str(Path(sys.executable).resolve())
+
+    def materialize(intent):
+        return renderer.render_prefixed(
+            intent,
+            executable=executable,
+            prefix_arguments=("-m", "leo_ppt_generator"),
+        )
+
+    return materialize
+
+
+def _config_service(manager=None) -> ConfigService:
+    """从当前 runtime 事实构建统一配置服务。"""
+
+    registry = ProviderRegistry.default()
+    home = default_home()
+    from .config.runtime_config import ConfigStore
+    from .config.reason_codes import ShellKind
+
+    store = ConfigStore(home)
+    manager = manager or credential_manager()
+    cli_path = _resolve_cli_path()
+    shell = ShellKind.POWERSHELL if os.name == "nt" else ShellKind.POSIX
+
+    def credential_reader(provider):
+        facts = dict(manager.status(provider.value))
+        if facts.get("reference_type") == "environment-reference":
+            version = manager.environment_version(provider.value)
+            if version is not None:
+                facts["credential_version"] = version
+        return facts
+
+    return ConfigService(
+        store,
+        manager.store,
+        registry,
+        FileReceiptStore(home, registry),
+        credential_reader=credential_reader,
+        action_materializer=(
+            _module_action_materializer(shell) if cli_path is None else None
+        ),
+        cli_path=cli_path,
+        shell=shell,
+    )
+
+
+def _config_wizard(provider: str | None = None) -> ConfigWizard:
+    """构造使用同一 CredentialManager/store 的交互式配置向导。"""
+
+    manager = credential_manager()
+    return ConfigWizard(
+        _config_service(manager),
+        CredentialInputResolver(manager.store, manager.environ),
+        input_stream=sys.stdin,
+        output_stream=sys.stdout,
+        fixed_provider=provider,
+    )
+
+
+def _config_provider_list(request: StatusRequest) -> dict[str, Any]:
+    report = _config_service().status(request)
+    by_name = {item.provider.value: item.to_dict() for item in report.providers}
+    providers = []
+    for definition in ProviderRegistry.default().definitions():
+        if definition.name == "builtin-imagegen":
+            continue
+        current = by_name.get(definition.name, {})
+        providers.append(
+            {
+                "provider": definition.name,
+                "selected": report.selected_provider is not None
+                and report.selected_provider.value == definition.name,
+                "configured": current.get("configuration_state")
+                == "locally_configured",
+                "credential_status": (
+                    "available"
+                    if current.get("credential_reference_type")
+                    in {"environment-reference", "os-store-reference"}
+                    else "missing"
+                ),
+                "capabilities": sorted(
+                    capability.value for capability in definition.supported_capabilities
+                ),
+                "default_model": definition.default_model,
+            }
+        )
+    return envelope("ready", "provider_listed", providers=providers)
+
+
+def _remove_provider_profile(provider: str) -> dict[str, Any]:
+    service = _config_service()
+    snapshot = service.config_store.read()
+    profiles = dict(snapshot.document.get("provider_profiles", {}))
+    existed = profiles.pop(provider, None) is not None
+    candidate = dict(snapshot.document)
+    candidate["provider_profiles"] = profiles
+    if candidate.get("selected_provider") == provider:
+        candidate.pop("selected_provider", None)
+    service.config_store.compare_and_swap(snapshot.canonical_digest, candidate)
+    service.receipt_store.invalidate(
+        ProviderName(provider), "provider_removed", f"provider-remove-{provider}"
+    )
+    return envelope(
+        "completed",
+        "provider_removed" if existed else "provider_not_found",
+        provider=provider,
+    )
+
+
+def _dispatch_config_provider(args: argparse.Namespace) -> dict[str, Any]:
+    command = args.config_provider_command
+    request = StatusRequest(route=getattr(args, "route", None))
+    if command == "list":
+        return _config_provider_list(request)
+    if command == "configure":
+        report = _config_wizard(args.provider).run(request).report
+        return envelope(report.status.value, report.reason_code, report=report.to_dict())
+    if command == "select":
+        service = _config_service()
+        snapshot = service.config_store.read()
+        if args.provider not in snapshot.values.get("provider_profiles", {}):
+            report = _config_wizard(args.provider).run(request).report
+        else:
+            report = service.change(
+                request,
+                selected_provider=args.provider,
+                operation_id=f"config-select-{args.provider}",
+            )
+        return envelope(report.status.value, report.reason_code, report=report.to_dict())
+    if not args.confirm:
+        raise ConfigServiceError("destructive_confirmation_required")
+    return _remove_provider_profile(args.provider)
+
+
+def _dispatch_config_credential(args: argparse.Namespace) -> dict[str, Any]:
+    manager = credential_manager()
+    command = args.config_credential_command
+    if command == "status":
+        providers = (args.provider,) if args.provider else tuple(PROVIDERS)
+        return envelope(
+            "ready",
+            "credential_status_reported",
+            credentials=[manager.status(provider) for provider in providers],
+        )
+    if command == "set":
+        result = manager.add(args.provider, overwrite=args.overwrite)
+        return envelope("completed", str(result["reason_code"]), credential=result)
+    if not args.confirm:
+        raise ConfigServiceError("destructive_confirmation_required")
+    result = manager.remove(args.provider)
+    return envelope("completed", str(result["reason_code"]), credential=result)
+
+
+def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
+    request = StatusRequest(route=getattr(args, "route", None))
+    command = args.config_command
+    if command is None:
+        report = _config_wizard().run(request).report
+        return envelope(
+            report.status.value,
+            report.reason_code,
+            report=report.to_dict(),
+        )
+
+    if command == "provider":
+        return _dispatch_config_provider(args)
+    if command == "credential":
+        return _dispatch_config_credential(args)
+
+    service = _config_service()
+    if command == "status":
+        report = service.status(request)
+        return envelope(
+            report.status.value,
+            report.reason_code,
+            report=report.to_dict(),
+        )
+    if command == "verify":
+        if not args.yes:
+            return envelope(
+                "action_required",
+                "paid_verification_consent_required",
+                report=service.status(request).to_dict(),
+            )
+        # Provider smoke executor 尚未接入 CLI；显式同意不能被伪装成已验证。
+        report = service.verify(request)
+        return envelope(
+            "action_required",
+            "provider_smoke_executor_unavailable",
+            report=report.to_dict(),
+        )
+    if command == "repair":
+        report = service.repair(request)
+        eligibility = getattr(getattr(report, "execution_eligibility", None), "value", None)
+        if eligibility == "blocked":
+            report = _config_wizard().run(request).report
+        return envelope(
+            report.status.value,
+            report.reason_code,
+            report=report.to_dict(),
+        )
+    if command == "change":
+        provider = getattr(args, "provider", None)
+        if provider is None:
+            report = _config_wizard().run(request).report
+        else:
+            snapshot = service.config_store.read()
+            if provider not in snapshot.values.get("provider_profiles", {}):
+                report = _config_wizard(provider).run(request).report
+            else:
+                report = service.change(
+                    request,
+                    selected_provider=provider,
+                    operation_id=f"config-change-{provider}",
+                )
+        return envelope(
+            report.status.value,
+            report.reason_code,
+            report=report.to_dict(),
+        )
+    raise ValueError(f"unknown config command: {command}")
+
+
 def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
+    if args.command == "version":
+        return _version_report()
+    if args.command in {"update", "rollback"}:
+        return _dispatch_runtime_lifecycle(args)
+    if args.command == "config":
+        return _dispatch_config(args)
     if args.command == "doctor":
         return doctor_report(args.route)
     if args.command == "setup":
@@ -1029,6 +1597,20 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
         if args.auth_command == "status":
             return manager.status(args.provider)
         return manager.remove(args.provider)
+    if args.command == "provider":
+        config = configure_openai_compatible_profile(
+            endpoint_origin=args.base_url,
+            model=args.model,
+        )
+        profile = config.values["provider_profiles"]["openai-compatible"]
+        return envelope(
+            "ready",
+            "provider_profile_configured",
+            provider=args.provider,
+            endpoint_origin=profile["endpoint_origin"],
+            model=profile["model"],
+            next_action={"kind": "configure_credential_reference"},
+        )
     if args.command == "backend":
         registry = BackendRegistry.default()
         if args.backend_command == "create":
@@ -1037,14 +1619,27 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
                 raise BackendContractError("backend_contract_exists")
             credential_source = None
             credential_ref = None
-            if args.provider in PROVIDERS:
-                credential_source, credential_ref = credential_manager().reference(args.provider)
+            endpoint_origin = None
+            model = args.model
+            if args.provider == "openai-compatible":
+                profile = openai_compatible_profile()
+                if profile is None:
+                    raise BackendContractError("provider_profile_missing")
+                endpoint_origin = profile["endpoint_origin"]
+                model = model or profile["model"]
+                credential_source = profile["credential_source"]
+                credential_ref = profile["credential_ref"]
+            elif args.provider in PROVIDERS:
+                credential_source, credential_ref = credential_manager().reference(
+                    args.provider
+                )
             contract = registry.create_contract(
                 args.provider,
                 mode=args.mode,
-                model=args.model,
+                model=model,
                 credential_source=credential_source,
                 credential_ref=credential_ref,
+                endpoint_origin=endpoint_origin,
             )
             try:
                 atomic_write_json(output, contract)
@@ -1103,6 +1698,7 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
                     runtime_identity=runtime_identity,
                     idempotency_key=args.idempotency_key,
                     office_trusted=args.office_trusted,
+                    project_root=args.project_root,
                 )
                 index = creation.index
                 run_snapshot = index.snapshot()
@@ -1297,6 +1893,7 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
                 slides_path = next((str(path) for path in candidates if path.is_file()), None)
             if not slides_path:
                 raise ContractError("slides_required")
+            slides_path = str(_freeze_slides_contract(run_path, slides_path))
             slides = _json_file(slides_path)
             if not isinstance(slides, list) or len(slides) > 50:
                 raise ContractError("input_too_large")
@@ -1386,7 +1983,7 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
                 lease=lease,
                 generation=generation,
             )
-        output = args.output or str(Path(run_path).resolve() / "final/deck.pptx")
+        output = _delivery_output_path(run_path, args.output)
         assert_run_quota(Path(run_path).resolve(), load_runtime_config())
         result = adapter.finalize(output, rebuild=args.rebuild)
         _mark_delivery_completed(run_path, stage="image.finalize")
@@ -1532,7 +2129,7 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
                 page=result["page"],
             )
         if args.editable_command == "finalize":
-            output = args.output or str(Path(run_path).resolve() / "final/deck.pptx")
+            output = _delivery_output_path(run_path, args.output)
             assert_run_quota(Path(run_path).resolve(), load_runtime_config())
             result = adapter.finalize(output)
             _mark_delivery_completed(run_path, stage="editable.finalize")
@@ -1668,7 +2265,7 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
         run = _json_file(Path(run_path) / "run.json")
         if not (Path(run_path) / "image-baseline" / "baseline.json").is_file():
             raise ContractError("upgrade_baseline_required")
-        output = args.output or str(Path(run_path).resolve() / "final/deck.pptx")
+        output = _delivery_output_path(run_path, args.output)
         assert_run_quota(Path(run_path).resolve(), load_runtime_config())
         editable_adapter = EditableAdapter(_domain_path(run_path, "editable"))
         if run["route"] == "upgrade-full":
@@ -1887,6 +2484,7 @@ ERRORS = (
     EvidenceError,
     BackendContractError,
     RuntimeConfigError,
+    ConfigServiceError,
     CleanupConflict,
     ContractError,
     IdempotencyConflict,
@@ -1896,6 +2494,7 @@ ERRORS = (
     UpstreamBridgeError,
     SetupContractError,
     CredentialError,
+    WizardCancelled,
 )
 
 
@@ -1909,7 +2508,13 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         result = dispatch(args)
-        if args.command == "setup" and not args.json:
+        if args.command == "version" and not args.json:
+            print(f"leo-ppt {result['package_version']}")
+            print(f"runtime {result['runtime_version']}")
+            print(f"install channel {result['install_channel']}")
+            print(f"config schema v{result['config_schema_version']}")
+            print(f"setup schema v{result['setup_schema_version']}")
+        elif args.command == "setup" and not args.json:
             print(render_setup_report(result))
         else:
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))

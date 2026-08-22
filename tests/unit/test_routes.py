@@ -4,6 +4,7 @@ import zipfile
 
 import pytest
 from leo_ppt_generator.application.routes import (
+    ROUTE_CAPABILITY_RESOLVER,
     ROUTES,
     RouteContractError,
     classify_input,
@@ -11,6 +12,7 @@ from leo_ppt_generator.application.routes import (
     select_route,
     validate_input_content,
 )
+from leo_ppt_generator.config.models import Capability, RouteName
 from PIL import Image
 from pptx import Presentation
 
@@ -35,6 +37,50 @@ def test_route_steps_are_code_owned_and_unknown_values_fail_closed():
         route_definition("runtime-injected")
     with pytest.raises(RouteContractError, match="unknown_step"):
         route_definition("generate").require_step("shell.eval")
+
+
+def test_route_definitions_own_the_v1_base_capability_matrix():
+    assert {
+        name: definition.base_capabilities for name, definition in ROUTES.items()
+    } == {
+        "generate": frozenset({Capability.GENERATE}),
+        "direct-editable": frozenset({Capability.EDIT}),
+        "upgrade-full": frozenset({Capability.EDIT}),
+        "upgrade-selected": frozenset({Capability.EDIT}),
+    }
+
+
+@pytest.mark.parametrize(
+    ("route", "task_capabilities", "expected"),
+    [
+        (None, frozenset(), frozenset({Capability.GENERATE})),
+        (
+            RouteName.GENERATE,
+            frozenset({Capability.MASK}),
+            frozenset({Capability.GENERATE, Capability.MASK}),
+        ),
+        (
+            RouteName.DIRECT_EDITABLE,
+            frozenset({Capability.MASK, Capability.REFERENCE}),
+            frozenset({Capability.EDIT, Capability.MASK, Capability.REFERENCE}),
+        ),
+        (
+            "upgrade-selected",
+            frozenset({"reference"}),
+            frozenset({Capability.EDIT, Capability.REFERENCE}),
+        ),
+    ],
+)
+def test_route_capability_resolver_defaults_and_unions_task_capabilities(
+    route, task_capabilities, expected
+):
+    assert ROUTE_CAPABILITY_RESOLVER.resolve(route, task_capabilities) == expected
+
+
+@pytest.mark.parametrize("task_capabilities", [{"generate"}, {"edit"}, {"unknown"}])
+def test_route_capability_resolver_rejects_non_task_capabilities(task_capabilities):
+    with pytest.raises(RouteContractError, match="task_capability_invalid"):
+        ROUTE_CAPABILITY_RESOLVER.resolve("generate", task_capabilities)
 
 
 def test_classify_input_rejects_untrusted_office_before_routing(tmp_path):

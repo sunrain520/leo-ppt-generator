@@ -13,6 +13,10 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
@@ -20,6 +24,10 @@ from typing import Any
 IDENTITY_SCHEMA_VERSION = 1
 TERMINAL_RUN_STATUSES = {"completed", "cancelled"}
 BOOTSTRAP_PROTOCOL = "leo-ppt-bootstrap/v1"
+REPOSITORY = "sunrain520/leo-ppt-generator"
+RAW_BASE = f"https://raw.githubusercontent.com/{REPOSITORY}"
+MAX_METADATA_BYTES = 1024 * 1024
+MAX_INSTALLER_BYTES = 2 * 1024 * 1024
 
 
 class RuntimeManagerError(RuntimeError):
@@ -108,6 +116,48 @@ def atomic_write_json(path: Path, value: dict[str, Any]) -> None:
     finally:
         if os.path.exists(temp_name):
             os.unlink(temp_name)
+
+
+def _safe_ref(value: str) -> str:
+    if (
+        not value
+        or len(value) > 200
+        or value.startswith(('.', '/'))
+        or ".." in value
+        or any(not (character.isalnum() or character in "._/-") for character in value)
+    ):
+        raise RuntimeIncompatibleError("update_ref_invalid")
+    return value
+
+
+def _download_raw(ref: str, relative_path: str, *, maximum_bytes: int) -> bytes:
+    ref = _safe_ref(ref)
+    url = f"{RAW_BASE}/{ref}/{relative_path}"
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "leo-ppt-generator-update/1"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            final = urllib.parse.urlsplit(response.geturl())
+            if final.scheme != "https" or final.hostname != "raw.githubusercontent.com":
+                raise RuntimeIncompatibleError("update_origin_forbidden")
+            payload = response.read(maximum_bytes + 1)
+    except (OSError, urllib.error.URLError) as exc:
+        raise RuntimeInstallError("update_check_failed") from exc
+    if not payload or len(payload) > maximum_bytes:
+        raise RuntimeInstallError("update_download_invalid")
+    return payload
+
+
+def _project_version(document: bytes) -> str:
+    try:
+        value = tomllib.loads(document.decode("utf-8"))["project"]["version"]
+    except (KeyError, TypeError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise RuntimeIncompatibleError("update_version_invalid") from exc
+    if not isinstance(value, str) or not value.strip():
+        raise RuntimeIncompatibleError("update_version_invalid")
+    return value.strip()
 
 
 class InstallLock:
@@ -371,11 +421,36 @@ class RuntimeManager:
     def _switch_current(self, identity: str, operation_id: str) -> dict[str, Any]:
         if not self._healthy(identity):
             raise RuntimeIncompatibleError(f"不能切换到未验证 runtime：{identity}")
+        previous_identity = None
+        if self.current_path.is_file():
+            try:
+                previous = read_json(self.current_path)
+            except (OSError, ValueError, json.JSONDecodeError):
+                previous = {}
+            candidate = previous.get("runtime_identity")
+            if isinstance(candidate, str) and candidate != identity:
+                previous_identity = candidate
+            elif candidate == identity:
+                preserved = previous.get("previous_runtime_identity")
+                if isinstance(preserved, str):
+                    previous_identity = preserved
+        metadata_bundle_root = self.bundle_root
+        install_target = os.environ.get("LEO_PPT_INSTALL_TARGET")
+        if install_target:
+            candidate_target = Path(install_target).expanduser().resolve()
+            if candidate_target.name != "leo-ppt-generator":
+                raise RuntimeIncompatibleError("install_target_invalid")
+            metadata_bundle_root = candidate_target
         value = {
             "schema_version": 1,
             "runtime_identity": identity,
             "runtime_dir": str(self._runtime_dir(identity)),
             "cli": str(venv_cli(self._runtime_dir(identity))),
+            "bundle_root": str(metadata_bundle_root),
+            "runtime_manager": str(
+                (metadata_bundle_root / "scripts/runtime_manager.py").resolve()
+            ),
+            "previous_runtime_identity": previous_identity,
             "operation_id": operation_id,
             "switched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
@@ -437,6 +512,121 @@ class RuntimeManager:
                 },
             )
             return result
+
+    def check(self) -> dict[str, Any]:
+        """只读比较 bundle 目标 identity 与当前受管 runtime。"""
+
+        target_identity = self.identity()
+        current_identity = None
+        current_healthy = False
+        if self.current_path.is_file():
+            try:
+                current = read_json(self.current_path)
+            except (OSError, ValueError, json.JSONDecodeError):
+                current = {}
+            candidate = current.get("runtime_identity")
+            if isinstance(candidate, str):
+                current_identity = candidate
+                current_healthy = self._healthy(candidate)
+        update_available = current_identity != target_identity or not current_healthy
+        return {
+            "protocol": "leo-ppt-update/v1",
+            "schema_version": 1,
+            "status": "update_available" if update_available else "current",
+            "reason_code": "runtime_update_available" if update_available else "runtime_current",
+            "current_runtime_identity": current_identity,
+            "target_runtime_identity": target_identity,
+            "current_healthy": current_healthy,
+            "update_available": update_available,
+            "config_preserved": True,
+            "credentials_preserved": True,
+        }
+
+    def release_check(self, ref: str = "main") -> dict[str, Any]:
+        """只读检查远端发布版本；不下载或激活 Skill。"""
+
+        ref = _safe_ref(ref)
+        current_version = _project_version(
+            (self.runtime_source / "pyproject.toml").read_bytes()
+        )
+        target_version = _project_version(
+            _download_raw(
+                ref,
+                "skills/leo-ppt-generator/runtime/pyproject.toml",
+                maximum_bytes=MAX_METADATA_BYTES,
+            )
+        )
+        update_available = current_version != target_version
+        return {
+            "protocol": "leo-ppt-update/v1",
+            "schema_version": 1,
+            "status": "update_available" if update_available else "current",
+            "reason_code": "release_update_available" if update_available else "release_current",
+            "current_version": current_version,
+            "target_version": target_version,
+            "target_ref": ref,
+            "update_available": update_available,
+            "config_preserved": True,
+            "credentials_preserved": True,
+        }
+
+    def update(self, ref: str = "main", *, dry_run: bool = False) -> dict[str, Any]:
+        """通过现有安装器验证、stage 并原子替换当前 Skill。"""
+
+        preview = self.release_check(ref)
+        if dry_run or not preview["update_available"]:
+            return {**preview, "dry_run": dry_run, "updated": False}
+
+        installer_name = "install.ps1" if os.name == "nt" else "install.sh"
+        installer = _download_raw(
+            ref, installer_name, maximum_bytes=MAX_INSTALLER_BYTES
+        )
+        with tempfile.TemporaryDirectory(prefix="leo-ppt-update-") as directory:
+            installer_path = Path(directory) / installer_name
+            installer_path.write_bytes(installer)
+            if os.name == "nt":
+                shell = shutil.which("pwsh") or shutil.which("powershell")
+                if shell is None:
+                    raise RuntimeInstallError("update_shell_unavailable")
+                command = [
+                    shell,
+                    "-NoProfile",
+                    "-File",
+                    str(installer_path),
+                    "-Upgrade",
+                    "-Target",
+                    str(self.bundle_root),
+                    "-Ref",
+                    ref,
+                ]
+            else:
+                command = [
+                    "/bin/bash",
+                    str(installer_path),
+                    "--upgrade",
+                    "--target",
+                    str(self.bundle_root),
+                    "--ref",
+                    ref,
+                ]
+            result = subprocess.run(
+                command,
+                text=True,
+                capture_output=True,
+                timeout=1800,
+                check=False,
+            )
+        if result.returncode != 0:
+            detail = (result.stderr.strip() or result.stdout.strip())[-4000:]
+            raise RuntimeInstallError(f"update_install_failed: {detail}")
+        return {
+            **preview,
+            "status": "updated",
+            "reason_code": "release_updated",
+            "updated": True,
+            "restart_required": True,
+            "installer_output": result.stdout[-2000:],
+        }
 
     def current(self) -> dict[str, Any]:
         if not self.current_path.is_file():
@@ -532,12 +722,107 @@ class RuntimeManager:
             "cli_report": cli_report,
         }
 
-    def rollback(self, identity: str, operation_id: str | None = None) -> dict[str, Any]:
-        operation_id = operation_id or uuid.uuid4().hex
-        with InstallLock(self.lock_path):
-            current = self._switch_current(identity, operation_id)
+    def onboard(self, route: str | None = None) -> dict[str, Any]:
+        """激活后 onboarding：解析绝对 CLI，运行 config status 并返回 readiness。
+
+        配置 onboarding 必须在激活成功后运行；失败不进入安装回滚分支。
+        """
+
+        try:
+            cli = self.print_cli()
+        except RuntimeIncompatibleError as exc:
             return {
                 "schema_version": 1,
+                "status": "blocked",
+                "reason_code": "cli_path_unresolved",
+                "installation_readiness": "installed_not_ready",
+                "cli_reference": None,
+                "message": str(exc),
+            }
+        command = [cli, "config", "status", "--json"]
+        if route:
+            command.extend(["--route", route])
+        try:
+            result = subprocess.run(
+                command, text=True, capture_output=True, timeout=60, check=False
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {
+                "schema_version": 1,
+                "status": "blocked",
+                "reason_code": "config_check_unavailable",
+                "installation_readiness": "installed_not_ready",
+                "cli_reference": cli,
+                "message": str(exc),
+            }
+        if result.returncode != 0:
+            return {
+                "schema_version": 1,
+                "status": "blocked",
+                "reason_code": "config_check_unavailable",
+                "installation_readiness": "installed_not_ready",
+                "cli_reference": cli,
+            }
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return {
+                "schema_version": 1,
+                "status": "blocked",
+                "reason_code": "config_protocol_invalid",
+                "installation_readiness": "installed_not_ready",
+                "cli_reference": cli,
+            }
+        report = payload.get("report")
+        if not isinstance(report, dict) or report.get("protocol") != "leo-ppt-config/v1":
+            return {
+                "schema_version": 1,
+                "status": "blocked",
+                "reason_code": "config_protocol_invalid",
+                "installation_readiness": "installed_not_ready",
+                "cli_reference": cli,
+            }
+        verification = report.get("verification")
+        if not isinstance(verification, dict):
+            return {
+                "schema_version": 1,
+                "status": "blocked",
+                "reason_code": "config_protocol_invalid",
+                "installation_readiness": "installed_not_ready",
+                "cli_reference": cli,
+            }
+        status = report.get("status", "invalid")
+        readiness = report.get("installation_readiness", "installed_not_ready")
+        return {
+            "schema_version": 1,
+            "status": status,
+            "configuration_state": report.get("configuration_state"),
+            "verification": verification,
+            "reason_code": report.get("reason_code", "config_protocol_invalid"),
+            "installation_readiness": readiness,
+            "execution_eligibility": report.get("execution_eligibility"),
+            "cli_reference": cli,
+            "selected_provider": report.get("selected_provider"),
+            "primary_action": report.get("primary_action"),
+        }
+
+    def rollback(
+        self, identity: str | None = None, operation_id: str | None = None
+    ) -> dict[str, Any]:
+        operation_id = operation_id or uuid.uuid4().hex
+        with InstallLock(self.lock_path):
+            if identity is None:
+                current = self.current()
+                candidate = current.get("previous_runtime_identity")
+                if not isinstance(candidate, str):
+                    raise RuntimeIncompatibleError("没有可回滚的上一健康 runtime")
+                identity = candidate
+            current = self._switch_current(identity, operation_id)
+            return {
+                "protocol": "leo-ppt-update/v1",
+                "schema_version": 1,
+                "status": "ready",
+                "reason_code": "runtime_rolled_back",
                 "operation_id": operation_id,
                 "outcome": "rolled_back",
                 **current,
@@ -596,6 +881,11 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     ensure = subcommands.add_parser("ensure")
     ensure.add_argument("--operation-id")
+    check = subcommands.add_parser("check")
+    check.add_argument("--ref", default="main")
+    update = subcommands.add_parser("update")
+    update.add_argument("--ref", default="main")
+    update.add_argument("--dry-run", action="store_true")
     bootstrap = subcommands.add_parser("bootstrap")
     bootstrap.add_argument("--python-source", required=True)
     bootstrap.add_argument("--bootstrap-platform", required=True)
@@ -603,9 +893,11 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap.add_argument("--operation-id")
     doctor = subcommands.add_parser("doctor")
     doctor.add_argument("--route")
+    onboard = subcommands.add_parser("onboard")
+    onboard.add_argument("--route")
     subcommands.add_parser("print-cli")
     rollback = subcommands.add_parser("rollback")
-    rollback.add_argument("--identity", required=True)
+    rollback.add_argument("--identity")
     rollback.add_argument("--operation-id")
     remove = subcommands.add_parser("remove")
     remove.add_argument("--identity", required=True)
@@ -620,6 +912,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "ensure":
             result: Any = manager.ensure(args.operation_id)
+        elif args.command == "check":
+            result = manager.release_check(args.ref)
+        elif args.command == "update":
+            result = manager.update(args.ref, dry_run=args.dry_run)
         elif args.command == "bootstrap":
             result = manager.bootstrap(
                 python_source=args.python_source,
@@ -629,6 +925,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.command == "doctor":
             result = manager.doctor(args.route)
+        elif args.command == "onboard":
+            result = manager.onboard(args.route)
         elif args.command == "print-cli":
             print(manager.print_cli())
             return 0

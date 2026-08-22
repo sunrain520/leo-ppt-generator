@@ -15,8 +15,10 @@ def doctor_fixture(
     local_status: str = "ready",
     reason_code: str = "ready",
     openai: str = "missing",
+    openai_compatible: str = "missing",
     atlascloud: str = "missing",
     paddleocr: str = "missing",
+    compatible_profile: str = "missing",
 ) -> dict:
     return {
         "status": local_status,
@@ -35,6 +37,11 @@ def doctor_fixture(
                 "reference_type": "environment",
                 "evidence_refs": ["doctor://credential/openai"],
             },
+            "openai-compatible": {
+                "status": openai_compatible,
+                "reference_type": "environment",
+                "evidence_refs": ["doctor://credential/openai-compatible"],
+            },
             "atlascloud": {
                 "status": atlascloud,
                 "reference_type": "environment",
@@ -45,6 +52,13 @@ def doctor_fixture(
                 "reference_type": "environment",
                 "evidence_refs": ["doctor://credential/paddleocr"],
             },
+        },
+        "provider_profiles": {
+            "openai-compatible": {
+                "status": compatible_profile,
+                "endpoint_origin": "https://proxy.example.com/v1" if compatible_profile == "available" else None,
+                "model": "proxy-image-model" if compatible_profile == "available" else None,
+            }
         },
         "evidence_refs": ["doctor://current"],
         "warnings": [],
@@ -111,11 +125,39 @@ def test_setup_hides_builtin_when_host_is_unavailable_and_traces_recommendations
 
     assert [option["provider"] for option in report["provider_options"]] == [
         "openai",
+        "openai-compatible",
         "atlascloud",
     ]
     openai = report["provider_options"][0]
     assert openai["credential_reference_type"] == "environment"
     assert openai["evidence_refs"] == ["doctor://credential/openai"]
+
+
+def test_setup_requires_a_compatible_profile_before_it_can_use_proxy_credentials(monkeypatch):
+    monkeypatch.setattr(
+        setup,
+        "doctor_report",
+        lambda _route: doctor_fixture(openai_compatible="available"),
+    )
+
+    report = setup.build_setup_report(
+        "generate", host_imagegen="unavailable", selected_provider="openai-compatible"
+    )
+
+    assert report["reason_code"] == "openai_compatible_configuration_required"
+    assert report["primary_action"]["id"] == "configure_openai_compatible_provider"
+
+    monkeypatch.setattr(
+        setup,
+        "doctor_report",
+        lambda _route: doctor_fixture(
+            openai_compatible="available", compatible_profile="available"
+        ),
+    )
+    ready = setup.build_setup_report(
+        "generate", host_imagegen="unavailable", selected_provider="openai-compatible"
+    )
+    assert ready["status"] == "ready"
 
 
 @pytest.mark.parametrize(
@@ -149,7 +191,10 @@ def test_setup_blocks_when_only_available_provider_lacks_required_mask(monkeypat
     )
 
     assert report["route_capabilities"] == ["generate", "mask"]
-    assert [option["provider"] for option in report["provider_options"]] == ["openai"]
+    assert [option["provider"] for option in report["provider_options"]] == [
+        "openai",
+        "openai-compatible",
+    ]
     assert report["reason_code"] == "provider_capability_required"
     assert report["primary_action"]["id"] == "select_capable_provider"
 

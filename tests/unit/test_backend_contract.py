@@ -26,21 +26,24 @@ def test_backend_registry_enumerates_public_candidates_by_capability():
     assert [backend.name for backend in registry.candidates({"generate"})] == [
         "builtin-imagegen",
         "openai",
+        "openai-compatible",
         "atlascloud",
     ]
     assert [backend.name for backend in registry.candidates({"edit", "mask"})] == [
         "builtin-imagegen",
         "openai",
+        "openai-compatible",
     ]
     assert [
         backend.name
         for backend in registry.candidates({"generate"}, include_fixtures=True)
-    ] == ["fixture", "builtin-imagegen", "openai", "atlascloud"]
+    ] == ["fixture", "builtin-imagegen", "openai", "openai-compatible", "atlascloud"]
 
 
 def test_backend_contract_validates_declared_capabilities_owner_and_credential_allowlist():
     registry = BackendRegistry.default()
     assert registry.load(backend_contract("openai"), required={"generate"}).name == "openai"
+    assert registry.load(backend_contract("openai-compatible"), required={"generate"}).name == "openai-compatible"
     overclaim = backend_contract("atlascloud")
     overclaim["capabilities"]["mask"] = True
     with pytest.raises(BackendContractError, match="backend_capability_overclaim"):
@@ -77,6 +80,17 @@ def test_backend_registry_creates_complete_self_validating_contract():
         credential_ref="keychain:leo-ppt-generator/openai",
     )
     assert registry.load(stored).name == "openai"
+
+    compatible = registry.create_contract(
+        "openai-compatible",
+        mode="generate",
+        credential_source="os-store-reference",
+        credential_ref="keychain:leo-ppt-generator/openai-compatible",
+        endpoint_origin="https://proxy.example.com/v1",
+    )
+    assert compatible["endpoint_origin"] == "https://proxy.example.com/v1"
+    with pytest.raises(BackendContractError, match="endpoint_origin_required"):
+        registry.create_contract("openai-compatible", mode="generate")
 
 
 def test_backend_registry_rejects_empty_model_during_creation_and_load():

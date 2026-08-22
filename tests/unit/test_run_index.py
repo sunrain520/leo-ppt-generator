@@ -127,3 +127,43 @@ def test_events_have_monotonic_sequence_under_concurrent_append(tmp_path):
     ]
     assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
     assert all("prompt" not in event["data"] for event in events)
+
+
+def test_readiness_pause_checkpoint_and_clear(tmp_path):
+    index = RunIndex.create(
+        tmp_path / "run", route="generate", runtime_identity="runtime-a"
+    )
+    revision = index.snapshot()["revision"]
+
+    updated = index.checkpoint_readiness_pause(
+        expected_revision=revision,
+        stage="image.generate",
+        required_capabilities=("generate",),
+        operation_id="operation-1",
+        artifact_refs=("run-1/artifacts/a.png",),
+        recovery_ref="run-1/recovery/evidence.json",
+    )
+    pause = updated["readiness_pause"]
+    assert pause["stage"] == "image.generate"
+    assert pause["required_capabilities"] == ["generate"]
+    assert pause["operation_id"] == "operation-1"
+    assert pause["artifact_refs"] == ["run-1/artifacts/a.png"]
+    assert pause["recovery_ref"] == "run-1/recovery/evidence.json"
+
+    cleared = index.clear_readiness_pause(
+        expected_revision=updated["revision"]
+    )
+    assert cleared["readiness_pause"] is None
+
+
+def test_readiness_pause_is_non_sensitive(tmp_path):
+    index = RunIndex.create(
+        tmp_path / "run", route="generate", runtime_identity="runtime-a"
+    )
+    updated = index.checkpoint_readiness_pause(
+        expected_revision=index.snapshot()["revision"],
+        stage="image.generate",
+    )
+    serialized = json.dumps(updated)
+    for marker in ("secret", "token", "password", "api_key"):
+        assert marker not in serialized.lower()

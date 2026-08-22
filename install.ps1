@@ -70,12 +70,29 @@ function Invoke-BootstrapLogged {
         [Parameter(Mandatory = $true)][string]$LogPath
     )
 
+    # 仅重定向 stdout（纯 JSON receipt）；stderr 保持实时输出以保留 stage 进度。
     & $script:BootstrapPowerShell @Arguments > $LogPath
     if (-not $?) {
         return 1
     }
     $ExitCode = Get-Variable -Name LASTEXITCODE -ValueOnly -ErrorAction SilentlyContinue
     return $(if ($null -eq $ExitCode) { 0 } else { [int]$ExitCode })
+}
+
+function Get-ReceiptReasonCode {
+    param(
+        [Parameter(Mandatory = $true)][string]$LogPath
+    )
+
+    try {
+        $Payload = Get-Content -LiteralPath $LogPath -Raw | ConvertFrom-Json
+        if ($Payload.reason_code) {
+            return [string]$Payload.reason_code
+        }
+    }
+    catch {
+    }
+    return "未知"
 }
 
 function Test-RuntimeReceipt {
@@ -96,6 +113,178 @@ function Test-RuntimeReceipt {
     }
     catch {
         return $false
+    }
+}
+
+function Test-InteractiveTerminal {
+    try {
+        return -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
+    }
+    catch {
+        return $false
+    }
+}
+
+function Format-ConfigCommand {
+    param(
+        [AllowNull()][string]$CliPath
+    )
+
+    if (-not $CliPath -or -not [IO.Path]::IsPathRooted($CliPath)) {
+        return $null
+    }
+    return "& '" + $CliPath.Replace("'", "''") + "' config"
+}
+
+function Get-OptionalJsonProperty {
+    param(
+        [AllowNull()][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+    $Property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $Property) {
+        return $null
+    }
+    return $Property.Value
+}
+
+function Write-InstalledNotReady {
+    param(
+        [Parameter(Mandatory = $true)][string]$ReasonCode,
+        [AllowNull()][string]$CliPath,
+        [AllowNull()][string]$SuggestedCommand
+    )
+
+    Write-Host "onboarding[skill]: 已安装"
+    Write-Host "onboarding[configuration]: 未能完成本地配置检查"
+    Write-Host "onboarding[verification]: 未执行"
+    Write-Host "onboarding[eligibility]: blocked"
+    Write-Host "onboarding[readiness]: installed_not_ready（reason_code=$ReasonCode）"
+    $Command = if ($SuggestedCommand) { $SuggestedCommand } else { Format-ConfigCommand -CliPath $CliPath }
+    if ($Command) {
+        Write-Host "请在终端运行：$Command"
+    }
+}
+
+function Invoke-PostActivationOnboarding {
+    param(
+        [Parameter(Mandatory = $true)][string]$StageRoot,
+        [switch]$SkipPrompt
+    )
+
+    # 激活已经是安装事务的提交点；此处的任何异常只影响 readiness 报告。
+    $OnboardingLog = Join-Path $StageRoot "post-activation-onboarding.log"
+    Write-Host "install[onboarding]: 正在检查图片服务配置…"
+    try {
+        if ((Invoke-BootstrapLogged -Arguments @("onboard", "--route", "generate") -LogPath $OnboardingLog) -ne 0) {
+            Write-InstalledNotReady -ReasonCode "config_check_unavailable" -CliPath $null -SuggestedCommand $null
+            return
+        }
+        $Report = Get-Content -LiteralPath $OnboardingLog -Raw | ConvertFrom-Json
+        $StatusValue = Get-OptionalJsonProperty -Object $Report -Name "status"
+        $ReadinessValue = Get-OptionalJsonProperty -Object $Report -Name "installation_readiness"
+        if (-not $Report -or -not $StatusValue -or -not $ReadinessValue) {
+            Write-InstalledNotReady -ReasonCode "config_protocol_invalid" -CliPath $null -SuggestedCommand $null
+            return
+        }
+    }
+    catch {
+        Write-InstalledNotReady -ReasonCode "config_check_unavailable" -CliPath $null -SuggestedCommand $null
+        return
+    }
+
+    $Status = [string]$StatusValue
+    $Readiness = [string]$ReadinessValue
+    $EligibilityValue = Get-OptionalJsonProperty -Object $Report -Name "execution_eligibility"
+    $Eligibility = if ($EligibilityValue) { [string]$EligibilityValue } else { "blocked" }
+    $ReasonCodeValue = Get-OptionalJsonProperty -Object $Report -Name "reason_code"
+    $ReasonCode = if ($ReasonCodeValue) { [string]$ReasonCodeValue } else { "config_protocol_invalid" }
+    $CliReference = Get-OptionalJsonProperty -Object $Report -Name "cli_reference"
+    $CliPath = if ($CliReference) { [string]$CliReference } else { $null }
+    $SuggestedCommand = $null
+    $PrimaryAction = Get-OptionalJsonProperty -Object $Report -Name "primary_action"
+    if ((Get-OptionalJsonProperty -Object $PrimaryAction -Name "kind") -eq "run_cli") {
+        $ActionCommand = Get-OptionalJsonProperty -Object $PrimaryAction -Name "command"
+        if ($ActionCommand) {
+            $SuggestedCommand = [string]$ActionCommand
+        }
+    }
+
+    Write-Host "onboarding[skill]: 已安装"
+    switch ($Status) {
+        "ready" {
+            Write-Host "onboarding[configuration]: 本地配置完成"
+            Write-Host "onboarding[verification]: 真实验证已通过"
+        }
+        "configured_unverified" {
+            Write-Host "onboarding[configuration]: 本地配置完成"
+            Write-Host "onboarding[verification]: 尚未完成当前图片能力的真实验证"
+        }
+        default {
+            Write-Host "onboarding[configuration]: 尚未完成或需要修复（status=$Status）"
+            Write-Host "onboarding[verification]: 尚未确认"
+        }
+    }
+    Write-Host "onboarding[eligibility]: $Eligibility"
+    Write-Host "onboarding[readiness]: $Readiness（reason_code=$ReasonCode）"
+
+    if ($Status -eq "configured_unverified") {
+        Write-Host "配置完成，可以开始使用；首次生成图片时验证服务。"
+        return
+    }
+    if ($Status -eq "ready") {
+        Write-Host "图片服务已就绪，可以开始生成 PPT。"
+        return
+    }
+    if ($Eligibility -notin @("blocked", "retryable")) {
+        return
+    }
+
+    $Command = if ($SuggestedCommand) { $SuggestedCommand } else { Format-ConfigCommand -CliPath $CliPath }
+    if ($SkipPrompt) {
+        if ($Command) {
+            Write-Host "请在终端运行：$Command"
+        }
+        return
+    }
+    if (-not (Test-InteractiveTerminal)) {
+        Write-Host "当前不是交互终端；Skill 已安装，但图片服务尚未就绪。"
+        if ($Command) {
+            Write-Host "请在终端运行：$Command"
+        }
+        return
+    }
+
+    if (-not $CliPath -or -not [IO.Path]::IsPathRooted($CliPath)) {
+        Write-InstalledNotReady -ReasonCode "cli_path_unresolved" -CliPath $null -SuggestedCommand $SuggestedCommand
+        return
+    }
+
+    try {
+        $Choice = Read-Host "图片服务尚未就绪。现在进入配置向导？[y/N]"
+        if ($Choice -notmatch '^(?i:y|yes)$') {
+            Write-Host "已推迟配置；Skill 保持已安装。"
+            if ($Command) {
+                Write-Host "请在终端运行：$Command"
+            }
+            return
+        }
+        & $CliPath @("config")
+        $WizardExitCode = Get-Variable -Name LASTEXITCODE -ValueOnly -ErrorAction SilentlyContinue
+        if ($null -ne $WizardExitCode -and [int]$WizardExitCode -ne 0) {
+            Write-Host "配置向导未完成；Skill 保持已安装。"
+        }
+        Invoke-PostActivationOnboarding -StageRoot $StageRoot -SkipPrompt
+    }
+    catch {
+        Write-Host "配置向导未完成；Skill 保持已安装。"
+        if ($Command) {
+            Write-Host "请在终端运行：$Command"
+        }
     }
 }
 
@@ -244,13 +433,21 @@ try {
     $script:BootstrapPowerShell = Join-Path $Candidate "scripts\leo-bootstrap.ps1"
     Write-Host "install[runtime_ensure]: 正在初始化受管 runtime…"
     $EnsureLog = Join-Path $StageRoot "runtime-ensure.log"
-    if ((Invoke-BootstrapLogged -Arguments @("bootstrap") -LogPath $EnsureLog) -ne 0) {
+    $PreviousInstallTarget = $env:LEO_PPT_INSTALL_TARGET
+    $env:LEO_PPT_INSTALL_TARGET = $Target
+    try {
+        $EnsureExitCode = Invoke-BootstrapLogged -Arguments @("bootstrap") -LogPath $EnsureLog
+    }
+    finally {
+        $env:LEO_PPT_INSTALL_TARGET = $PreviousInstallTarget
+    }
+    if ($EnsureExitCode -ne 0) {
         [Console]::Error.WriteLine((Get-Content -LiteralPath $EnsureLog -Raw))
         throw "runtime 初始化失败；现有 Skill 未被替换"
     }
     if (-not (Test-RuntimeReceipt -LogPath $EnsureLog -Kind "bootstrap")) {
         [Console]::Error.WriteLine((Get-Content -LiteralPath $EnsureLog -Raw))
-        throw "runtime 初始化返回无效 receipt；现有 Skill 未被替换"
+        throw "runtime 初始化返回无效 receipt（reason_code=$(Get-ReceiptReasonCode -LogPath $EnsureLog)）；现有 Skill 未被替换"
     }
     Write-Host "runtime：就绪"
 
@@ -263,7 +460,7 @@ try {
         }
         if (-not (Test-RuntimeReceipt -LogPath $DoctorLog -Kind "doctor")) {
             [Console]::Error.WriteLine((Get-Content -LiteralPath $DoctorLog -Raw))
-            throw "route 返回无效或未就绪 receipt：$Route；现有 Skill 未被替换"
+            throw "route 返回无效或未就绪 receipt：$Route（reason_code=$(Get-ReceiptReasonCode -LogPath $DoctorLog)）；现有 Skill 未被替换"
         }
         Write-Host "route ${Route}：本地机制就绪"
     }
@@ -289,6 +486,8 @@ try {
         throw "激活新 Skill 失败；已尝试恢复旧版本：$($_.Exception.Message)"
     }
     Write-Host "install[activate]: 已原子激活验证后的 Skill"
+    $script:BootstrapPowerShell = Join-Path $Target "scripts\leo-bootstrap.ps1"
+    Invoke-PostActivationOnboarding -StageRoot $StageRoot
 
     Write-Host ""
     Write-Host "安装成功：$Target"

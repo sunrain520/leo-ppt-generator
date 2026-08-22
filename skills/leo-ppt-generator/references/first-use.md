@@ -24,8 +24,24 @@ Python、venv、runtime identity、内部目录或多条诊断命令，除非用
 
 - 只有宿主明确声明 available，才能选择 `builtin-imagegen`；unknown 先核实，不能
   推测为 available，也不能静默切换外部 Provider。
-- unavailable 时只展示 setup 返回的外部 `provider_options`。一个可用 Provider 仍需
-  用户确认；多个可用 Provider 必须让用户选择；用户拒绝外部服务时停止，不要求配置。
+- 统一配置入口是 `leo-ppt config`。读取 `config status --json --route <route>`：
+  `configured_unverified` 表示本地配置完整、`execution_eligibility=allowed`、
+  `installation_readiness=usable_unverified`，允许开始任务，首张真实业务图片承担
+  惰性验证；`ready` 只表示当前 Route 所需能力已被有效 evidence 或宿主现场能力完整
+  覆盖。`not_configured`/`invalid` 暂停图片节点，只给一个 `run_cli` Primary_Action
+  终端命令。
+- 宿主不得代替用户录入密钥，也不得把聊天内容、工具参数或模型上下文变成凭据通道。
+  用户必须在本地终端运行返回的命令；完成后复查 `config status`，`allowed` 时从原
+  节点恢复任务。
+- 首次配置或缺少 Provider profile 时运行 `config`；指定 Provider 使用
+  `config provider configure --provider <provider>`；已有 profile 的切换使用
+  `config provider select --provider <provider>`。凭据只通过
+  `config credential set/status/remove` 管理。不得向普通用户生成历史 `auth`、顶层
+  `provider configure` 或 `config change`。
+- 选择 `openai-compatible` 时，先用 HTTPS API base URL 与模型名配置 profile；任意
+  用户配置的 endpoint 默认不自动 probe、不查询模型列表、不幂等重试。一个可用
+  Provider 仍需用户确认；多个可用 Provider 必须让用户选择；用户拒绝外部服务时停止，
+  不要求配置。
 - 环境中后来出现新 secret 不改变已冻结 run。切换图片 Provider 或 generation method
   后必须重新生成并确认样张。
 - OCR 不参与图片 Provider 选择。图片式 generate 不询问 PaddleOCR；editable 阶段仅把
@@ -35,11 +51,12 @@ Python、venv、runtime identity、内部目录或多条诊断命令，除非用
 
 用户必须在本地交互式终端执行，不能在聊天、命令参数或 pipe 中传 secret：
 
-- macOS/POSIX：`"<bootstrap 返回的 cli_reference>" auth add --provider <provider>`
-- Windows PowerShell：`& "<bootstrap 返回的 cli_reference>" auth add --provider <provider>`
+- macOS/POSIX：`"<bootstrap 返回的 cli_reference>" config`
+- Windows PowerShell：`& "<bootstrap 返回的 cli_reference>" config`
 
-已存在凭据时，只有用户确认覆盖后才增加 `--overwrite`。完成后由 Agent 运行
-`auth status --provider <provider> --json` 并回到原任务。状态输出只允许引用和
+向导默认不发起付费验证；只有用户在真实 TTY 中明确同意时，`config verify --yes` 才执行
+generate-only smoke（默认“否”）。已存在凭据时，只有用户确认覆盖后才写入新值。
+完成后由 Agent 运行 `config status --json` 并回到原任务。状态输出只允许引用和
 `available|missing`，不得读取、显示或记录 secret value。
 
 OS store 保护边界不包括已取得同一用户会话权限的恶意进程。疑似账户或本机会话失陷

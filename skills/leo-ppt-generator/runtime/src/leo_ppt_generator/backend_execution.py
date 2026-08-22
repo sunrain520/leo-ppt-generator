@@ -83,6 +83,13 @@ def _resolve_reference(
     raise BackendExecutionError("credential_reference_invalid")
 
 
+def _openai_compatible_api_base_url(endpoint_origin: str) -> str:
+    """从持久化的安全 origin 派生 OpenAI SDK 所需 `/v1` base URL。"""
+
+    base_url = endpoint_origin.rstrip("/")
+    return base_url if base_url.endswith("/v1") else f"{base_url}/v1"
+
+
 def build_execution_context(
     contract_path: str | Path,
     isolated_root: str | Path,
@@ -112,13 +119,17 @@ def build_execution_context(
             # Atlas vendor 使用独立的 HTTP provider；兼容层只需同时提供其旧字段。
             env["ATLASCLOUD_API_KEY"] = credential
             env["OPENAI_API_KEY"] = credential
-        elif provider == "openai":
+        elif provider in {"openai", "openai-compatible"}:
             env["OPENAI_API_KEY"] = credential
         else:
             raise BackendExecutionError("provider_credential_mapping_unsupported")
     endpoint = contract.get("endpoint_origin")
     if isinstance(endpoint, str) and endpoint:
-        env["OPENAI_BASE_URL"] = endpoint
+        env["OPENAI_BASE_URL"] = (
+            _openai_compatible_api_base_url(endpoint)
+            if provider == "openai-compatible"
+            else endpoint
+        )
     timeouts = contract.get("timeouts")
     if not isinstance(timeouts, dict):
         timeouts = {}

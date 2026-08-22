@@ -35,12 +35,12 @@ _PRIMARY_ACTIONS: dict[str, dict[str, str]] = {
     },
     "image_provider_configuration_required": {
         "id": "configure_image_provider",
-        "command": "leo-ppt auth add --provider <openai|atlascloud>",
+        "command": "leo-ppt config",
         "verification": "凭据状态变为 available 后重新运行 setup。",
     },
     "host_image_capability_unavailable": {
         "id": "select_external_provider",
-        "command": "leo-ppt setup --route {route} --host-imagegen unavailable --provider <openai|atlascloud>",
+        "command": "leo-ppt setup --route {route} --host-imagegen unavailable --provider <openai|openai-compatible|atlascloud>",
         "verification": "selected_provider 为外部 Provider 且状态为 ready。",
     },
     "provider_confirmation_required": {
@@ -55,23 +55,28 @@ _PRIMARY_ACTIONS: dict[str, dict[str, str]] = {
     },
     "provider_capability_required": {
         "id": "select_capable_provider",
-        "command": "leo-ppt auth add --provider {provider}",
+        "command": "leo-ppt config provider configure --provider {provider}",
         "verification": "重新运行 setup，确认所选 Provider 满足 route_capabilities。",
     },
     "selected_provider_unavailable": {
         "id": "configure_selected_provider",
-        "command": "leo-ppt auth add --provider {provider}",
+        "command": "leo-ppt config provider configure --provider {provider}",
         "verification": "所选 provider 的凭据状态变为 available 后重新运行 setup。",
     },
     "unknown_backend": {
         "id": "choose_supported_provider",
-        "command": "leo-ppt setup --route {route} --provider <builtin-imagegen|openai|atlascloud>",
+        "command": "leo-ppt setup --route {route} --provider <builtin-imagegen|openai|openai-compatible|atlascloud>",
         "verification": "重新运行 setup，确认 provider 出现在 provider_options 中。",
     },
     "setup_schema_version_unsupported": {
         "id": "upgrade_runtime",
         "command": "运行安装器的升级命令",
         "verification": "setup-report schema_version 为 1 后重新验证。",
+    },
+    "openai_compatible_configuration_required": {
+        "id": "configure_openai_compatible_provider",
+        "command": "leo-ppt config provider configure --provider openai-compatible",
+        "verification": "重新运行 setup，确认中转站端点和模型已就绪。",
     },
 }
 
@@ -99,7 +104,18 @@ def utc_now() -> str:
 
 def command_name(args: Any) -> str:
     parts = [getattr(args, "command", None)]
-    for name in ("backend_command", "run_command", "image_command", "editable_command", "upgrade_command", "delivery_command", "evidence_command"):
+    for name in (
+        "config_command",
+        "config_provider_command",
+        "config_credential_command",
+        "backend_command",
+        "run_command",
+        "image_command",
+        "editable_command",
+        "upgrade_command",
+        "delivery_command",
+        "evidence_command",
+    ):
         value = getattr(args, name, None)
         if value:
             parts.append(value)

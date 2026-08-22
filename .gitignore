@@ -1,9 +1,5 @@
 # spec-first:start
 # host-local scratch and settings
-.agents/*
-!.agents/plugins/
-!.agents/plugins/marketplace.json
-.codex/
 .claude/tasks/
 .claude/worktrees/
 .qoder/settings.local.json
@@ -12,7 +8,6 @@
 .spec-first/*.local.yaml
 .spec-first/config.local.yaml
 .spec-first/config/*.json
-.spec-first/cache/
 .spec-first/audits/
 .spec-first/governance/
 .spec-first/app-audit/

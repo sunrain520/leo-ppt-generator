@@ -97,3 +97,46 @@ def test_auth_status_is_versioned_and_never_returns_secret(monkeypatch):
     assert status["protocol"] == "leo-ppt-credential/v1"
     assert status["credential_ref"] == "env:OPENAI_API_KEY"
     assert secret not in json.dumps(status)
+
+
+def test_config_status_is_versioned_and_side_effect_free(tmp_path, monkeypatch):
+    """`leo-ppt config status` 输出 leo-ppt-config/v1 且不修改任何文件。"""
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_COMPATIBLE_API_KEY", raising=False)
+    monkeypatch.delenv("ATLASCLOUD_API_KEY", raising=False)
+
+    code, payload = invoke("config", "status", "--json")
+    assert code == 0
+    report = payload["report"]
+    assert report["protocol"] == "leo-ppt-config/v1"
+    assert report["schema_version"] == 1
+    assert report["status"] in {
+        "not_configured",
+        "configured_unverified",
+        "ready",
+        "degraded",
+        "invalid",
+    }
+    assert report["execution_eligibility"] in {"allowed", "retryable", "blocked"}
+    assert report["readiness_scope"]["route"] == "generate"
+    # status 是只读操作：LEO_PPT_HOME 下不得产生任何文件。
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_config_status_with_environment_credential_is_configured_unverified(
+    tmp_path, monkeypatch
+):
+    """env 引用存在时 status 返回 configured_unverified 而非 blocked。"""
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path))
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-integration-test")
+
+    code, payload = invoke("config", "status", "--json")
+    assert code == 0
+    report = payload["report"]
+    assert report["status"] in {"not_configured", "configured_unverified"}
+    if report["status"] == "configured_unverified":
+        assert report["execution_eligibility"] == "allowed"
+        assert report["installation_readiness"] == "usable_unverified"
+        assert report["readiness_scope"]["route"] == "generate"
+        assert "generate" in report["readiness_scope"]["missing_capabilities"]

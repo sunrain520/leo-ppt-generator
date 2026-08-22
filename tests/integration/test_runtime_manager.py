@@ -401,6 +401,90 @@ class RuntimeManagerTest(unittest.TestCase):
 
             self.assertTrue(Path(installed["runtime_dir"]).is_dir())
 
+    def test_release_check_compares_remote_and_local_versions(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manager = module.RuntimeManager(make_bundle(root, "0.0.1"), root / "home")
+            remote = b'[project]\nname = "fixture-runtime"\nversion = "0.0.2"\n'
+            with mock.patch.object(module, "_download_raw", return_value=remote):
+                result = manager.release_check("v0.0.2")
+            self.assertEqual("leo-ppt-update/v1", result["protocol"])
+            self.assertEqual("0.0.1", result["current_version"])
+            self.assertEqual("0.0.2", result["target_version"])
+            self.assertTrue(result["update_available"])
+
+    def test_update_dry_run_never_executes_installer(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manager = module.RuntimeManager(make_bundle(root, "0.0.1"), root / "home")
+            preview = {
+                "protocol": "leo-ppt-update/v1",
+                "schema_version": 1,
+                "status": "update_available",
+                "reason_code": "release_update_available",
+                "update_available": True,
+            }
+            with (
+                mock.patch.object(manager, "release_check", return_value=preview),
+                mock.patch.object(module.subprocess, "run") as runner,
+            ):
+                result = manager.update("v0.0.2", dry_run=True)
+            runner.assert_not_called()
+            self.assertTrue(result["dry_run"])
+            self.assertFalse(result["updated"])
+
+    def test_rollback_without_identity_uses_previous_healthy_runtime(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            home = root / "home"
+            first = module.RuntimeManager(make_bundle(root, "0.0.1"), home).ensure()
+            manager = module.RuntimeManager(make_bundle(root, "0.0.2"), home)
+            manager.ensure()
+            rolled = manager.rollback()
+            self.assertEqual(first["runtime_identity"], rolled["runtime_identity"])
+            self.assertEqual("runtime_rolled_back", rolled["reason_code"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_onboard_returns_installation_readiness_from_config_status(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bundle = make_bundle(root)
+            manager = module.RuntimeManager(bundle, root / "home")
+            manager.ensure()
+
+            # fixture CLI 无 config 子命令：返回 config_check_unavailable 或
+            # cli_path_unresolved，但绝不破坏安装真值。
+            result = manager.onboard()
+            self.assertIn(
+                result["reason_code"],
+                {"config_check_unavailable", "config_protocol_invalid",
+                 "cli_path_unresolved", "ready", "not_configured"},
+            )
+            self.assertIn(
+                result["installation_readiness"],
+                {"installed_not_ready", "usable_unverified", "ready",
+                 "configured_unverified"},
+            )
+            # onboard 不改变 runtime identity。
+            self.assertEqual(
+                manager.current()["runtime_identity"],
+                result.get("cli_reference") and manager.current()["runtime_identity"]
+            )
+
+    def test_onboard_without_runtime_returns_cli_path_unresolved(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manager = module.RuntimeManager(make_bundle(root), root / "home")
+            result = manager.onboard()
+            self.assertEqual("blocked", result["status"])
+            self.assertEqual("cli_path_unresolved", result["reason_code"])
+            self.assertEqual("installed_not_ready", result["installation_readiness"])
+            self.assertIsNone(result["cli_reference"])

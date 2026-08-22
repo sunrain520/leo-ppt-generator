@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+launcher_path="${BASH_SOURCE[0]}"
+while [[ -L "$launcher_path" ]]; do
+  launcher_dir="$(cd -P "$(dirname "$launcher_path")" && pwd)"
+  link_target="$(readlink "$launcher_path")"
+  if [[ "$link_target" == /* ]]; then
+    launcher_path="$link_target"
+  else
+    launcher_path="$launcher_dir/$link_target"
+  fi
+done
+script_dir="$(cd -P "$(dirname "$launcher_path")" && pwd)"
+cli_reference="$(LEO_PPT_BOOTSTRAP_QUIET=1 "$script_dir/leo-bootstrap.sh" print-cli)"
+
+if [[ "$cli_reference" != /* || ! -x "$cli_reference" ]]; then
+  printf 'leo-ppt：当前 runtime CLI 无效，请重新安装或升级 leo-ppt-generator\n' >&2
+  exit 2
+fi
+
+exec "$cli_reference" "$@"
