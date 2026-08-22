@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed - 2026-08-23
+
+- 补充仓库卫生规则：忽略 `.spec-first/cache`、`.hypothesis`、`.ruff_cache`、`.venv`、
+  `.env`、`.DS_Store`、`*.bak` 与 `semantic-review`，并将已误提交的 MCP warmup 缓存与
+  graphify 备份移出 Git 跟踪。
+
 ### Added - 2026-08-22
 
 - 新增无状态 setup facade、宿主图片能力三态、Provider capability/凭据/确认排序和 OCR

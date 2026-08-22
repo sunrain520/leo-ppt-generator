@@ -29,3 +29,15 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# spec-first cache, tooling backups, and editor artifacts
+.spec-first/cache/
+.hypothesis/
+.ruff_cache/
+.venv/
+venv/
+.env
+.DS_Store
+*.bak
+*.graphify-bak
+semantic-review/
