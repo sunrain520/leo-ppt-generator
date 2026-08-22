@@ -210,6 +210,25 @@ class RuntimeManagerTest(unittest.TestCase):
             self.assertEqual(manager.print_cli(), result["cli_reference"])
             self.assertIsNone(result["primary_action"])
 
+    def test_install_target_metadata_survives_pre_activation_staging(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            staged_bundle = make_bundle(root / "stage")
+            target = root / "installed/leo-ppt-generator"
+            manager = module.RuntimeManager(staged_bundle, root / "home")
+            with mock.patch.dict(
+                module.os.environ,
+                {"LEO_PPT_INSTALL_TARGET": str(target)},
+            ):
+                manager.ensure()
+            current = module.read_json(manager.current_path)
+            self.assertEqual(str(target.resolve()), current["bundle_root"])
+            self.assertEqual(
+                str((target / "scripts/runtime_manager.py").resolve()),
+                current["runtime_manager"],
+            )
+
     def test_bootstrap_cli_failure_keeps_bootstrap_result_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -434,6 +453,28 @@ class RuntimeManagerTest(unittest.TestCase):
             runner.assert_not_called()
             self.assertTrue(result["dry_run"])
             self.assertFalse(result["updated"])
+
+    def test_update_runs_installer_non_interactively(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manager = module.RuntimeManager(make_bundle(root, "0.0.1"), root / "home")
+            preview = {
+                "protocol": "leo-ppt-update/v1",
+                "schema_version": 1,
+                "status": "update_available",
+                "reason_code": "release_update_available",
+                "update_available": True,
+            }
+            completed = SimpleNamespace(returncode=0, stdout="updated", stderr="")
+            with (
+                mock.patch.object(manager, "release_check", return_value=preview),
+                mock.patch.object(module, "_download_raw", return_value=b"#!/bin/sh\n"),
+                mock.patch.object(module.subprocess, "run", return_value=completed) as runner,
+            ):
+                result = manager.update("v0.0.2")
+            self.assertTrue(result["updated"])
+            self.assertIs(runner.call_args.kwargs["stdin"], subprocess.DEVNULL)
 
     def test_rollback_without_identity_uses_previous_healthy_runtime(self) -> None:
         module = load_manager()

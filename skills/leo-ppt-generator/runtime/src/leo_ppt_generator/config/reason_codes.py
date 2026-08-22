@@ -62,6 +62,8 @@ class ReasonCode(StrEnum):
     CREDENTIAL_INPUT_CHANNEL_UNAVAILABLE = "credential_input_channel_unavailable"
     CREDENTIAL_EMPTY = "credential_empty"
     CREDENTIAL_OVERWRITE_CONFIRMATION_REQUIRED = "credential_overwrite_confirmation_required"
+    PAID_VERIFICATION_CONSENT_REQUIRED = "paid_verification_consent_required"
+    PROVIDER_SMOKE_EXECUTOR_UNAVAILABLE = "provider_smoke_executor_unavailable"
     CREDENTIAL_STORE_UNSUPPORTED = "credential_store_unsupported"
     CREDENTIAL_STORE_LOCKED = "credential_store_locked"
     CREDENTIAL_STORE_DENIED = "credential_store_denied"
@@ -174,6 +176,8 @@ _REASON_DEFINITIONS = (
     _definition(ReasonCode.CREDENTIAL_INPUT_CHANNEL_UNAVAILABLE, ConfigStage.CREDENTIAL, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
     _definition(ReasonCode.CREDENTIAL_EMPTY, ConfigStage.CREDENTIAL, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
     _definition(ReasonCode.CREDENTIAL_OVERWRITE_CONFIRMATION_REQUIRED, ConfigStage.CREDENTIAL, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
+    _definition(ReasonCode.PAID_VERIFICATION_CONSENT_REQUIRED, ConfigStage.CREDENTIAL, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
+    _definition(ReasonCode.PROVIDER_SMOKE_EXECUTOR_UNAVAILABLE, ConfigStage.VERIFY, RecoveryCategory.REPAIR, _RUN, _VERIFY),
     _definition(ReasonCode.CREDENTIAL_STORE_UNSUPPORTED, ConfigStage.CREDENTIAL, RecoveryCategory.REPAIR, _RUN, _REPAIR),
     _definition(ReasonCode.CREDENTIAL_STORE_LOCKED, ConfigStage.CREDENTIAL, RecoveryCategory.REPAIR, _RUN, _REPAIR),
     _definition(ReasonCode.CREDENTIAL_STORE_DENIED, ConfigStage.CREDENTIAL, RecoveryCategory.REPAIR, _RUN, _REPAIR),

@@ -38,6 +38,8 @@ Python、venv、runtime identity、内部目录或多条诊断命令，除非用
   `config provider select --provider <provider>`。凭据只通过
   `config credential set/status/remove` 管理。不得向普通用户生成历史 `auth`、顶层
   `provider configure` 或 `config change`。
+- `config reset --confirm` 只用于用户明确要求重建非敏感配置；它保留系统凭据，不得由
+  Agent 根据普通配置失败自动执行。
 - 选择 `openai-compatible` 时，先用 HTTPS API base URL 与模型名配置 profile；任意
   用户配置的 endpoint 默认不自动 probe、不查询模型列表、不幂等重试。一个可用
   Provider 仍需用户确认；多个可用 Provider 必须让用户选择；用户拒绝外部服务时停止，

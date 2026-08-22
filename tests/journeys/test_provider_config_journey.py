@@ -245,6 +245,12 @@ def test_journey_cli_config_status_end_to_end():
             "invalid",
             "degraded",
         }
+        if report["status"] == "not_configured":
+            import shlex
+
+            action = report["primary_action"]
+            assert action["kind"] == "run_cli"
+            assert shlex.split(action["command"])[-1] == "config"
 
 
 def _png() -> bytes:

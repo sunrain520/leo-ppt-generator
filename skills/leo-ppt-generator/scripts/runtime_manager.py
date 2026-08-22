@@ -611,6 +611,7 @@ class RuntimeManager:
                 ]
             result = subprocess.run(
                 command,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 capture_output=True,
                 timeout=1800,

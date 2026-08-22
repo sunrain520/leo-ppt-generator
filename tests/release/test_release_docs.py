@@ -257,15 +257,33 @@ def test_documented_public_commands_exist_in_current_cli_help():
         "PYTHONPATH": str(ROOT / "skills/leo-ppt-generator/runtime/src"),
     }
     for arguments, anchors in (
+        (("version", "--help"), ("--json",)),
+        (
+            ("update", "--help"),
+            ("--check", "--dry-run", "--version", "--yes", "--json"),
+        ),
+        (("rollback", "--help"), ("--identity", "--json")),
         (("auth", "add", "--help"), ("--provider", "--overwrite")),
         (("setup", "--help"), ("--host-imagegen", "--ocr-requirement")),
         (
             ("config", "--help"),
-            ("status", "verify", "repair", "change"),
+            ("status", "verify", "repair", "provider", "credential", "reset"),
         ),
         (
             ("config", "status", "--help"),
             ("--route", "--json"),
+        ),
+        (
+            ("config", "provider", "--help"),
+            ("list", "configure", "select", "remove"),
+        ),
+        (
+            ("config", "credential", "--help"),
+            ("status", "set", "remove"),
+        ),
+        (
+            ("config", "credential", "set", "--help"),
+            ("--provider", "--overwrite", "--key-stdin"),
         ),
     ):
         result = subprocess.run(

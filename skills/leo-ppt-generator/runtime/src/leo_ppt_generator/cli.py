@@ -26,6 +26,7 @@ from .config.backend_contract import BackendContractError, BackendRegistry
 from .config.provider_registry import ProviderRegistry
 from .config.receipt_store import FileReceiptStore
 from .config.models import ProviderName
+from .config.reason_codes import ReasonCode
 from .config.service import ConfigService, ConfigServiceError, StatusRequest
 from .config.wizard import ConfigWizard, WizardCancelled
 from .config.runtime_config import (
@@ -213,11 +214,17 @@ def _dispatch_runtime_lifecycle(args: argparse.Namespace) -> dict[str, Any]:
     if not isinstance(payload, dict):
         return envelope("blocked", "runtime_lifecycle_protocol_invalid")
     if confirmation_required:
+        if payload.get("update_available"):
+            return envelope(
+                "action_required",
+                "update_confirmation_required",
+                runtime=payload,
+                primary_action={"kind": "run_cli", "command": "leo-ppt update --yes"},
+            )
         return envelope(
-            "action_required",
-            "update_confirmation_required",
+            "ready",
+            str(payload.get("reason_code", "release_current")),
             runtime=payload,
-            primary_action={"kind": "run_cli", "command": "leo-ppt update --yes"},
         )
     status = "ready" if result.returncode == 0 else "blocked"
     reason = str(
@@ -996,6 +1003,7 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--pages")
 
     config = subcommands.add_parser("config")
+    config.add_argument("--key-stdin", action="store_true")
     config_commands = config.add_subparsers(dest="config_command")
     config_status = config_commands.add_parser("status")
     config_status.add_argument("--route")
@@ -1006,12 +1014,14 @@ def build_parser() -> argparse.ArgumentParser:
     config_verify.add_argument("--json", action="store_true")
     config_repair = config_commands.add_parser("repair")
     config_repair.add_argument("--route")
+    config_repair.add_argument("--key-stdin", action="store_true")
     config_repair.add_argument("--json", action="store_true")
     config_change = config_commands.add_parser("change")
     config_change.add_argument(
         "--provider",
         choices=("openai", "openai-compatible", "atlascloud"),
     )
+    config_change.add_argument("--key-stdin", action="store_true")
     config_change.add_argument("--json", action="store_true")
 
     config_provider = config_commands.add_parser("provider")
@@ -1028,6 +1038,7 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
     provider_configure.add_argument("--route")
+    provider_configure.add_argument("--key-stdin", action="store_true")
     provider_configure.add_argument("--json", action="store_true")
     provider_select = provider_commands.add_parser("select")
     provider_select.add_argument(
@@ -1036,6 +1047,7 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
     provider_select.add_argument("--route")
+    provider_select.add_argument("--key-stdin", action="store_true")
     provider_select.add_argument("--json", action="store_true")
     provider_remove = provider_commands.add_parser("remove")
     provider_remove.add_argument(
@@ -1056,11 +1068,16 @@ def build_parser() -> argparse.ArgumentParser:
     credential_set = credential_commands.add_parser("set")
     credential_set.add_argument("--provider", choices=tuple(PROVIDERS), required=True)
     credential_set.add_argument("--overwrite", action="store_true")
+    credential_set.add_argument("--key-stdin", action="store_true")
     credential_set.add_argument("--json", action="store_true")
     credential_remove = credential_commands.add_parser("remove")
     credential_remove.add_argument("--provider", choices=tuple(PROVIDERS), required=True)
     credential_remove.add_argument("--confirm", action="store_true")
     credential_remove.add_argument("--json", action="store_true")
+
+    config_reset = config_commands.add_parser("reset")
+    config_reset.add_argument("--confirm", action="store_true")
+    config_reset.add_argument("--json", action="store_true")
 
     auth = subcommands.add_parser("auth")
     auth_commands = auth.add_subparsers(dest="auth_command", required=True)
@@ -1388,7 +1405,9 @@ def _config_service(manager=None) -> ConfigService:
     )
 
 
-def _config_wizard(provider: str | None = None) -> ConfigWizard:
+def _config_wizard(
+    provider: str | None = None, *, key_stdin: bool = False
+) -> ConfigWizard:
     """构造使用同一 CredentialManager/store 的交互式配置向导。"""
 
     manager = credential_manager()
@@ -1397,6 +1416,7 @@ def _config_wizard(provider: str | None = None) -> ConfigWizard:
         CredentialInputResolver(manager.store, manager.environ),
         input_stream=sys.stdin,
         output_stream=sys.stdout,
+        key_stdin=key_stdin,
         fixed_provider=provider,
     )
 
@@ -1436,6 +1456,8 @@ def _remove_provider_profile(provider: str) -> dict[str, Any]:
     snapshot = service.config_store.read()
     profiles = dict(snapshot.document.get("provider_profiles", {}))
     existed = profiles.pop(provider, None) is not None
+    if not existed:
+        return envelope("completed", "provider_not_found", provider=provider)
     candidate = dict(snapshot.document)
     candidate["provider_profiles"] = profiles
     if candidate.get("selected_provider") == provider:
@@ -1446,7 +1468,7 @@ def _remove_provider_profile(provider: str) -> dict[str, Any]:
     )
     return envelope(
         "completed",
-        "provider_removed" if existed else "provider_not_found",
+        "provider_removed",
         provider=provider,
     )
 
@@ -1457,13 +1479,17 @@ def _dispatch_config_provider(args: argparse.Namespace) -> dict[str, Any]:
     if command == "list":
         return _config_provider_list(request)
     if command == "configure":
-        report = _config_wizard(args.provider).run(request).report
+        report = _config_wizard(
+            args.provider, key_stdin=args.key_stdin
+        ).run(request).report
         return envelope(report.status.value, report.reason_code, report=report.to_dict())
     if command == "select":
         service = _config_service()
         snapshot = service.config_store.read()
         if args.provider not in snapshot.values.get("provider_profiles", {}):
-            report = _config_wizard(args.provider).run(request).report
+            report = _config_wizard(
+                args.provider, key_stdin=args.key_stdin
+            ).run(request).report
         else:
             report = service.change(
                 request,
@@ -1487,7 +1513,29 @@ def _dispatch_config_credential(args: argparse.Namespace) -> dict[str, Any]:
             credentials=[manager.status(provider) for provider in providers],
         )
     if command == "set":
-        result = manager.add(args.provider, overwrite=args.overwrite)
+        if args.key_stdin:
+            if manager.store.status(args.provider) == "available" and not args.overwrite:
+                raise CredentialError("credential_overwrite_confirmation_required")
+            selection = CredentialInputResolver(manager.store, manager.environ).select(
+                args.provider,
+                key_stdin=True,
+                input_stream=sys.stdin,
+                tty_stream=None,
+                force_new_secret=True,
+            )
+            try:
+                if selection.secret is None:
+                    raise CredentialError("credential_input_channel_unavailable")
+                # store 的协议签名是 write(secret: str)；显式受让最短生命周期文本副本，
+                # 由 selection.close() 负责清零，避免跨通道传递 SecretBuffer 对象。
+                manager.store.write(
+                    args.provider, selection.secret.reveal_text()
+                )
+                result = manager.status(args.provider)
+            finally:
+                selection.close()
+        else:
+            result = manager.add(args.provider, overwrite=args.overwrite)
         return envelope("completed", str(result["reason_code"]), credential=result)
     if not args.confirm:
         raise ConfigServiceError("destructive_confirmation_required")
@@ -1499,7 +1547,9 @@ def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
     request = StatusRequest(route=getattr(args, "route", None))
     command = args.config_command
     if command is None:
-        report = _config_wizard().run(request).report
+        report = _config_wizard(
+            key_stdin=getattr(args, "key_stdin", False)
+        ).run(request).report
         return envelope(
             report.status.value,
             report.reason_code,
@@ -1510,6 +1560,32 @@ def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
         return _dispatch_config_provider(args)
     if command == "credential":
         return _dispatch_config_credential(args)
+    if command == "reset":
+        if not args.confirm:
+            raise ConfigServiceError("destructive_confirmation_required")
+        service = _config_service()
+        snapshot = service.config_store.read()
+        try:
+            service.config_store.compare_and_swap(
+                snapshot.canonical_digest,
+                {"schema_version": 1, "provider_profiles": {}},
+            )
+        except RuntimeConfigError as error:
+            # CAS 冲突：不破坏并发写入者的配置，也不伪装成已 reset。
+            raise ConfigServiceError(str(error.reason_code)) from error
+        for provider in (
+            ProviderName.OPENAI,
+            ProviderName.OPENAI_COMPATIBLE,
+            ProviderName.ATLASCLOUD,
+        ):
+            service.receipt_store.invalidate(
+                provider, "config_reset", "config-reset"
+            )
+        return envelope(
+            "completed",
+            "config_reset",
+            credentials_preserved=True,
+        )
 
     service = _config_service()
     if command == "status":
@@ -1523,21 +1599,34 @@ def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
         if not args.yes:
             return envelope(
                 "action_required",
-                "paid_verification_consent_required",
+                ReasonCode.PAID_VERIFICATION_CONSENT_REQUIRED.value,
                 report=service.status(request).to_dict(),
+                primary_action={
+                    "kind": "run_cli",
+                    "command": "config",
+                    "verification": "在真实交互终端运行 config 并明确同意付费验证",
+                },
             )
-        # Provider smoke executor 尚未接入 CLI；显式同意不能被伪装成已验证。
+        # Provider smoke executor 尚未接入 CLI；显式同意不能被伪装成已验证，
+        # 只能返回一个诚实的不可用状态与可执行恢复命令。
         report = service.verify(request)
         return envelope(
             "action_required",
-            "provider_smoke_executor_unavailable",
+            ReasonCode.PROVIDER_SMOKE_EXECUTOR_UNAVAILABLE.value,
             report=report.to_dict(),
+            primary_action={
+                "kind": "run_cli",
+                "command": "config",
+                "verification": "Provider smoke executor 接入后，在真实终端同意重试 config verify",
+            },
         )
     if command == "repair":
         report = service.repair(request)
         eligibility = getattr(getattr(report, "execution_eligibility", None), "value", None)
         if eligibility == "blocked":
-            report = _config_wizard().run(request).report
+            report = _config_wizard(
+                key_stdin=getattr(args, "key_stdin", False)
+            ).run(request).report
         return envelope(
             report.status.value,
             report.reason_code,
@@ -1546,11 +1635,15 @@ def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
     if command == "change":
         provider = getattr(args, "provider", None)
         if provider is None:
-            report = _config_wizard().run(request).report
+            report = _config_wizard(
+                key_stdin=getattr(args, "key_stdin", False)
+            ).run(request).report
         else:
             snapshot = service.config_store.read()
             if provider not in snapshot.values.get("provider_profiles", {}):
-                report = _config_wizard(provider).run(request).report
+                report = _config_wizard(
+                    provider, key_stdin=getattr(args, "key_stdin", False)
+                ).run(request).report
             else:
                 report = service.change(
                     request,

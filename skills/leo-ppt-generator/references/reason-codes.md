@@ -86,7 +86,7 @@
 | `provider_listed` | Provider Registry 与本地配置状态已列出 | 不适用 | 从列表选择一个 Provider，或继续当前任务 |
 | `provider_removed`、`provider_not_found` | Provider profile 已删除，或目标 profile 原本不存在 | 不适用 | 需要时重新运行 `config provider configure`；凭据不会随 profile 自动删除 |
 | `credential_status_reported` | 凭据引用状态已列出，未读取 secret value | 不适用 | 缺失时运行 `config credential set` |
-| `paid_verification_consent_required` | `config verify` 尚未获得当前操作的一次性付费同意 | 是 | 审阅费用边界后显式增加 `--yes`，或跳过并使用首张业务图片惰性验证 |
+| `paid_verification_consent_required` | `config verify` 尚未获得当前操作的一次性付费同意 | 是 | 在真实交互终端运行 `config` 并明确同意付费验证，或跳过并使用首张业务图片惰性验证 |
 | `provider_smoke_executor_unavailable` | 已获得同意，但当前 runtime 没有可调用的真实 smoke executor | 否 | 不声明 `ready`；升级 runtime 或直接进入业务图片惰性验证 |
 | `runtime_manager_unavailable` | current metadata 未解析到已安装的 runtime manager | 是 | 重新运行安装器或 bootstrap，恢复受管路径 |
 | `runtime_lifecycle_unavailable` | update/rollback 无法启动 runtime manager 或执行超时 | 是 | 核对安装路径和活动安装进程后重试 |

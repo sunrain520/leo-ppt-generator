@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from leo_ppt_generator import cli
+from leo_ppt_generator.config.service import ConfigServiceError
 from leo_ppt_generator.credentials import CredentialManager, UnsupportedCredentialStore
 from PIL import Image
 
@@ -386,7 +387,7 @@ def test_config_change_without_provider_enters_wizard(monkeypatch):
             return type("Result", (), {"report": _ConfigDispatchReport()})()
 
     wizard = Wizard()
-    monkeypatch.setattr(cli, "_config_wizard", lambda *_: wizard)
+    monkeypatch.setattr(cli, "_config_wizard", lambda *_, **__: wizard)
 
     result = cli.dispatch(parse("config", "change"))
 
@@ -416,7 +417,7 @@ def test_config_without_subcommand_dispatches_to_wizard(monkeypatch):
             return type("Result", (), {"report": _ConfigDispatchReport()})()
 
     wizard = Wizard()
-    monkeypatch.setattr(cli, "_config_wizard", lambda: wizard)
+    monkeypatch.setattr(cli, "_config_wizard", lambda *_, **__: wizard)
 
     result = cli.dispatch(parse("config"))
 
@@ -567,6 +568,150 @@ def test_config_verify_requires_explicit_consent(tmp_path, monkeypatch):
     result = cli.dispatch(parse("config", "verify", "--json"))
     assert result["status"] == "action_required"
     assert result["reason_code"] == "paid_verification_consent_required"
+    # 同意必须来自真实交互 TTY，而不是可直接执行的 --yes 自指命令。
+    action = result["primary_action"]
+    assert action["kind"] == "run_cli"
+    assert action["command"] == "config"
+    assert "--yes" not in action["command"]
+
+
+def test_config_verify_with_yes_returns_honest_unavailable_when_executor_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+    result = cli.dispatch(parse("config", "verify", "--yes", "--json"))
+    assert result["status"] == "action_required"
+    assert result["reason_code"] == "provider_smoke_executor_unavailable"
+    # 不可用状态不能伪装成 ready，恢复入口是交互式 config。
+    assert result["primary_action"]["kind"] == "run_cli"
+    assert result["primary_action"]["command"] == "config"
+
+
+def test_config_reset_clears_profiles_but_preserves_credentials(tmp_path, monkeypatch):
+    from leo_ppt_generator.config.runtime_config import ConfigStore
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    store = ConfigStore(home)
+    store.compare_and_swap(
+        None,
+        {
+            "schema_version": 1,
+            "selected_provider": "openai",
+            "provider_profiles": {
+                "openai": {
+                    "model": "gpt-image-2",
+                    "credential_source": "environment-reference",
+                    "credential_ref": "env:OPENAI_API_KEY",
+                }
+            },
+        },
+    )
+    result = cli.dispatch(parse("config", "reset", "--confirm", "--json"))
+    assert result["reason_code"] == "config_reset"
+    assert result["credentials_preserved"] is True
+    assert store.read().values["provider_profiles"] == {}
+    assert store.read().values.get("selected_provider") is None
+
+
+def test_config_reset_requires_confirmation(tmp_path, monkeypatch):
+    from leo_ppt_generator.config.runtime_config import ConfigStore
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    store = ConfigStore(home)
+    store.compare_and_swap(
+        None,
+        {
+            "schema_version": 1,
+            "provider_profiles": {
+                "openai": {"model": "gpt-image-2",
+                           "credential_source": "environment-reference",
+                           "credential_ref": "env:OPENAI_API_KEY"},
+            },
+        },
+    )
+    with pytest.raises(ConfigServiceError) as error:
+        cli.dispatch(parse("config", "reset", "--json"))
+    assert error.value.reason_code == "destructive_confirmation_required"
+    # 无确认不得破坏现有配置。
+    assert store.read().values["provider_profiles"] != {}
+
+
+def test_config_reset_conflict_fails_closed_without_mutating(tmp_path, monkeypatch):
+    from leo_ppt_generator.config.runtime_config import RuntimeConfigError
+    from leo_ppt_generator.config.service import ConfigService
+    from leo_ppt_generator.config.readiness import ConfigReport
+
+    class ConflictStore:
+        def read(self):
+            return type(
+                "Snapshot", (),
+                {"canonical_digest": "abc", "document": {}, "values": {}, "validation_issues": ()},
+            )()
+
+        def compare_and_swap(self, expected_digest, candidate):
+            # 并发写入者已改动 digest：任何基于现有 digest 的 reset CAS 均被拒绝。
+            raise RuntimeConfigError("config_write_conflict")
+
+    class NoopReceipt:
+        def invalidate(self, provider, cause, operation_id):
+            return None
+
+    service = ConfigService(
+        ConflictStore(), None, None, NoopReceipt()
+    )
+    monkeypatch.setattr(cli, "_config_service", lambda: service)
+
+    with pytest.raises(ConfigServiceError) as error:
+        cli.dispatch(parse("config", "reset", "--confirm", "--json"))
+    assert error.value.reason_code == "config_write_conflict"
+
+
+def test_config_provider_remove_missing_profile_returns_not_found(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+    result = cli.dispatch(
+        parse("config", "provider", "remove", "--provider", "openai",
+              "--confirm", "--json")
+    )
+    assert result["reason_code"] == "provider_not_found"
+    assert result["status"] == "completed"
+
+
+def test_config_credential_set_accepts_only_explicit_key_stdin(monkeypatch):
+    class Store:
+        def __init__(self):
+            self.value = None
+
+        def status(self, provider):
+            return "available" if self.value is not None else "missing"
+
+        def reference(self, provider):
+            return f"keychain:leo-ppt-generator/{provider}"
+
+        def write(self, provider, secret):
+            # 协议签名是 write(provider, secret: str)；CLI 层通过 reveal_text()
+            # 显式受让文本副本再写入。
+            self.value = secret
+
+        def fingerprint_key(self, create=False):
+            return None
+
+    store = Store()
+    manager = CredentialManager(store, {})
+    monkeypatch.setattr(cli, "credential_manager", lambda: manager)
+    monkeypatch.setattr(cli.sys, "stdin", __import__("io").StringIO("secret-from-stdin\n"))
+    result = cli.dispatch(
+        parse(
+            "config",
+            "credential",
+            "set",
+            "--provider",
+            "openai",
+            "--key-stdin",
+            "--json",
+        )
+    )
+    assert store.value == "secret-from-stdin"
+    assert result["credential"]["credential_ref"].endswith("/openai")
 
 
 def test_update_without_yes_is_preview_and_confirmation(monkeypatch, tmp_path):
@@ -579,6 +724,7 @@ def test_update_without_yes_is_preview_and_confirmation(monkeypatch, tmp_path):
         "protocol": "leo-ppt-update/v1",
         "status": "update_available",
         "reason_code": "release_update_available",
+        "update_available": True,
     }
     observed = {}
 
@@ -591,6 +737,32 @@ def test_update_without_yes_is_preview_and_confirmation(monkeypatch, tmp_path):
     assert observed["command"][-3:] == ["check", "--ref", "v1.2.3"]
     assert result["status"] == "action_required"
     assert result["reason_code"] == "update_confirmation_required"
+
+
+def test_update_without_yes_when_current_reports_ready(monkeypatch, tmp_path):
+    manager = tmp_path / "runtime_manager.py"
+    manager.write_text("# manager", encoding="utf-8")
+    bundle = tmp_path / "leo-ppt-generator"
+    bundle.mkdir()
+    monkeypatch.setattr(cli, "_runtime_manager_metadata", lambda: (manager, bundle))
+    payload = {
+        "protocol": "leo-ppt-update/v1",
+        "status": "current",
+        "reason_code": "release_current",
+        "update_available": False,
+    }
+    observed = {}
+
+    def run(command, **kwargs):
+        observed["command"] = command
+        return type("Result", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})()
+
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    result = cli.dispatch(parse("update", "--version", "v1.2.3", "--json"))
+    assert observed["command"][-3:] == ["check", "--ref", "v1.2.3"]
+    assert result["status"] == "ready"
+    assert result["reason_code"] == "release_current"
+    assert result.get("primary_action") is None
 
 
 def test_rollback_delegates_to_runtime_manager(monkeypatch, tmp_path):

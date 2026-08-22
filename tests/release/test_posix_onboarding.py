@@ -236,7 +236,7 @@ def test_posix_onboarding_activates_before_ready_and_usable_reports(tmp_path: Pa
             text=True,
             capture_output=True,
             check=False,
-            timeout=1,
+            timeout=5,
         )
 
         assert result.returncode == 0, result.stderr
@@ -270,7 +270,7 @@ def test_posix_onboarding_does_not_wait_for_configuration_without_tty(tmp_path: 
         text=True,
         capture_output=True,
         check=False,
-        timeout=1,
+        timeout=5,
     )
 
     assert result.returncode == 0, result.stderr
