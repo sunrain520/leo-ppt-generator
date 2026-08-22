@@ -38,7 +38,7 @@ def test_platform_test_constraints_pin_hypothesis_without_runtime_leakage() -> N
     """Validates: Requirements 18.5."""
     constraints = RUNTIME / "constraints"
 
-    for platform in ("darwin-arm64", "win32-amd64"):
+    for platform in ("darwin-arm64", "darwin-x86_64", "win32-amd64"):
         test_requirements = _requirements(
             constraints / f"test-py312-{platform}.txt"
         )

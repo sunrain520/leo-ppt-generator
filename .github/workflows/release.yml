@@ -3,6 +3,7 @@ name: release
 on:
   push:
     tags: ["v*"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -25,6 +26,70 @@ jobs:
         env:
           CI: "1"
         run: python -m pytest tests/unit tests/property -q
+
+  platform-smoke:
+    name: platform smoke (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            bootstrap: skills/leo-ppt-generator/scripts/leo-bootstrap.sh
+            bootstrap_engine: bash
+          # macos-13 是 GitHub 的 Intel x86_64 runner。
+          - os: macos-13
+            arch: x86_64
+            bootstrap: skills/leo-ppt-generator/scripts/leo-bootstrap.sh
+            bootstrap_engine: bash
+          - os: windows-latest
+            arch: x64
+            bootstrap: skills/leo-ppt-generator/scripts/leo-bootstrap.ps1
+            bootstrap_engine: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bootstrap runtime and smoke CLI on real platform
+        shell: bash
+        env:
+          BOOTSTRAP_PATH: ${{ matrix.bootstrap }}
+          BOOTSTRAP_ENGINE: ${{ matrix.bootstrap_engine }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, subprocess, sys
+
+          env = {**os.environ, "LEO_PPT_BOOTSTRAP_QUIET": "1"}
+          script = os.environ["BOOTSTRAP_PATH"]
+          if os.environ["BOOTSTRAP_ENGINE"] == "powershell":
+              cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script]
+          else:
+              cmd = ["bash", script]
+
+          proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=1800)
+          sys.stderr.write(proc.stderr[-4000:])
+          if proc.returncode != 0:
+              raise SystemExit(f"bootstrap failed rc={proc.returncode}")
+          report = json.loads(proc.stdout.strip().splitlines()[-1])
+          assert report["status"] == "ready", report
+          cli = report["cli_reference"]
+
+          v = subprocess.run([cli, "version", "--json"], capture_output=True, text=True, timeout=120)
+          ver = json.loads(v.stdout)
+          assert v.returncode == 0 and ver["status"] == "ready", (v.returncode, v.stdout, v.stderr)
+
+          # 全新安装未配置 provider 时 status 为 not_configured（exit 2），只要求协议信封可解析。
+          c = subprocess.run([cli, "config", "status", "--json"], capture_output=True, text=True, timeout=120)
+          cfg = json.loads(c.stdout)
+          assert cfg.get("protocol") == "leo-ppt-machine/v1", cfg
+
+          print(f"SMOKE_OK platform={report['platform']} arch={report['architecture']} "
+                f"python={report['python_source']} config_status={cfg.get('status')} "
+                f"version={ver['runtime_version']}")
+          PY
 
   build-and-verify:
     runs-on: ubuntu-latest

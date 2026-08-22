@@ -87,10 +87,10 @@ fi
 
 platform="$(uname -s)"
 architecture="$(uname -m)"
-if [[ "$platform" != "Darwin" || "$architecture" != "arm64" ]]; then
-  fail "当前版本仅支持 macOS arm64；检测到 ${platform}/${architecture}"
+if [[ "$platform" != "Darwin" || ( "$architecture" != "arm64" && "$architecture" != "x86_64" ) ]]; then
+  fail "当前版本仅支持 macOS arm64/x86_64 或 Windows x64；检测到 ${platform}/${architecture}"
 fi
-printf 'install[platform_check]: macOS arm64 已确认\n'
+printf 'install[platform_check]: macOS %s 已确认\n' "$architecture"
 
 if [[ -z "$target" ]]; then
   if [[ "$agents_mode" == "1" ]]; then

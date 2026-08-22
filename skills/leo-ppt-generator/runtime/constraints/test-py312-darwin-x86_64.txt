@@ -1,0 +1,4 @@
+# Test-only dependencies for Python 3.12 / macOS x86_64.
+# RuntimeManager never selects this file; runtime requirements remain test-free.
+-r py312-darwin-x86_64.txt
+Hypothesis==6.165.5

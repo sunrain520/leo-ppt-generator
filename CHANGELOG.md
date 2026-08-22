@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added - 2026-08-23
+
+- 新增 macOS Intel (x86_64) 支持：固定 `macos-x64` uv artifact、`darwin-x86_64`
+  约束锁、bootstrap/install 平台门与 Keychain 集成测试覆盖；目标安装平台扩展为
+  macOS arm64/x86_64 与 Windows 10/11 x64。
+- 新增跨平台 `platform-smoke` CI job：在 macOS arm64、macOS Intel 与 Windows x64
+  runner 上执行真实 clean install、bootstrap 与 `config status` 冒烟，并在 PR 触发。
+- 同步兼容性声明、README、用户指南、故障处理与 reason-codes 的平台文案。
+
 ### Changed - 2026-08-23
 
 - 补充仓库卫生规则：忽略 `.spec-first/cache`、`.hypothesis`、`.ruff_cache`、`.venv`、

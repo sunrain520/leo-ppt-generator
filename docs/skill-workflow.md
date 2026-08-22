@@ -77,7 +77,7 @@ flowchart TD
 
 安装器遵守以下边界：
 
-- 支持 macOS arm64 与 Windows 10/11 x64，不要求管理员权限或预装 Python。
+- 支持 macOS arm64/x86_64 与 Windows 10/11 x64，不要求管理员权限或预装 Python。
 - 不修改系统 Python 和系统 PATH，不读取或保存 API Key；macOS standalone 只在用户级命令目录安装稳定 launcher，目录不在 PATH 时明确提示。
 - 同一目标只允许一个安装器持有安装锁；竞争安装 fail closed。
 - 新版本先在临时位置完成本地机制验证，再原子激活。

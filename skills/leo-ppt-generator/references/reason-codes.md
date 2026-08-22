@@ -82,7 +82,9 @@
 | `provider_registry_unknown` | Provider Registry 查询未命中已声明的 Provider 或策略 | 否 | 升级 runtime 或选择已注册 Provider；不按缺失声明推测能力 |
 | `schema_not_found` | 请求的机器协议 schema 文件缺失或无法解析 | 否 | 升级 runtime 或修复 schema 打包；不伪造协议结构 |
 | `config_service_error` | 配置编排层收到无法解释的输入或状态 | 否 | 读取具体子 reason code 后修复并重试 |
+| `config_reset` | 非敏感 Provider 配置已原子重建，receipt 已失效，OS 凭据仍保留 | 不适用 | 重新运行 `config` 或保持未配置状态 |
 | `provider_listed` | Provider Registry 与本地配置状态已列出 | 不适用 | 从列表选择一个 Provider，或继续当前任务 |
+| `provider_removed`、`provider_not_found` | Provider profile 已删除，或目标 profile 原本不存在 | 不适用 | 需要时重新运行 `config provider configure`；凭据不会随 profile 自动删除 |
 | `credential_status_reported` | 凭据引用状态已列出，未读取 secret value | 不适用 | 缺失时运行 `config credential set` |
 | `paid_verification_consent_required` | `config verify` 尚未获得当前操作的一次性付费同意 | 是 | 审阅费用边界后显式增加 `--yes`，或跳过并使用首张业务图片惰性验证 |
 | `provider_smoke_executor_unavailable` | 已获得同意，但当前 runtime 没有可调用的真实 smoke executor | 否 | 不声明 `ready`；升级 runtime 或直接进入业务图片惰性验证 |
@@ -105,7 +107,7 @@
 | `setup_status_invalid`、`setup_primary_action_unexpected`、`setup_primary_action_required`、`setup_contract_error` | setup 报告违反 v1 状态或唯一动作不变量 | 条件式 | 停止消费该报告并升级或修复 runtime |
 | `bootstrap_ready` | 已解析兼容解释器并完成受管 runtime ensure | 不适用 | 使用 `cli_reference` 继续 doctor/setup；不外推真实 Provider 或交付质量 |
 | `bootstrap_bundle_incomplete`、`bootstrap_manifest_invalid`、`bootstrap_manifest_parser_missing` | bundle 缺少 launcher 所需文件、固定 manifest 无效或本机无法安全解析 | 是 | 重新安装 Skill；若系统已有可信 Python 3.12，可先走兼容入口 |
-| `bootstrap_platform_unsupported` | 当前平台或架构不在发布矩阵 | 否 | 切换到 macOS arm64 或 Windows x64，不强行执行其他工件 |
+| `bootstrap_platform_unsupported` | 当前平台或架构不在发布矩阵 | 否 | 切换到 macOS arm64/x86_64 或 Windows x64，不强行执行其他工件 |
 | `bootstrap_origin_forbidden` | manifest URL 不是固定 uv 版本的官方 HTTPS origin | 否 | 停止执行并重新安装可信发布包 |
 | `bootstrap_download_tools_missing` | macOS 缺少安全下载、校验或解压所需系统工具 | 条件式 | 安装兼容系统 Python 3.12 后重试，不执行远程 pipe |
 | `bootstrap_download_failed` | 固定 bootstrap 工件因网络、代理、404 或超时未完整下载 | 是 | 检查网络或代理后重试；旧 runtime 保持不变 |

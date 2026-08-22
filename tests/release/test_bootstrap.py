@@ -311,7 +311,7 @@ def test_posix_bootstrap_rejects_incompatible_architecture_before_mutation(
     tools.mkdir()
     fake_uname = tools / "uname"
     fake_uname.write_text(
-        '#!/bin/sh\nif [ "$1" = "-s" ]; then echo Darwin; else echo x86_64; fi\n',
+        '#!/bin/sh\nif [ "$1" = "-s" ]; then echo Darwin; else echo i386; fi\n',
         encoding="utf-8",
     )
     fake_uname.chmod(0o755)
@@ -325,6 +325,33 @@ def test_posix_bootstrap_rejects_incompatible_architecture_before_mutation(
     assert result.returncode == 2
     assert json.loads(result.stdout)["reason_code"] == "bootstrap_platform_unsupported"
     assert not (tmp_path / "home").exists()
+
+
+def test_posix_bootstrap_accepts_x86_64_architecture(tmp_path: Path):
+    bundle = make_bootstrap_bundle(tmp_path)
+    tools, isolated_path = no_python_path(tmp_path / "isolated")
+    fake_uname = tools / "uname"
+    fake_uname.write_text(
+        '#!/bin/sh\nif [ "$1" = "-s" ]; then echo Darwin; else echo x86_64; fi\n',
+        encoding="utf-8",
+    )
+    fake_uname.chmod(0o755)
+    write_fake_uv(tools / "uv")
+
+    result = run_posix(
+        bundle,
+        tmp_path / "home",
+        environment={
+            "PATH": isolated_path,
+            "LEO_FAKE_PYTHON": sys.executable,
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "ready"
+    assert payload["architecture"] == "x86_64"
+    assert payload["python_source"] == "uv-existing"
 
 
 def test_posix_bootstrap_reports_unwritable_private_home(tmp_path: Path):

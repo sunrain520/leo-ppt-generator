@@ -642,7 +642,7 @@ def test_macos_rejects_wrong_platform_and_unsafe_ref_before_install(tmp_path: Pa
     )
 
     assert wrong_platform.returncode != 0
-    assert "仅支持 macOS arm64" in wrong_platform.stderr
+    assert "仅支持 macOS arm64/x86_64 或 Windows x64" in wrong_platform.stderr
     assert not target.exists()
     assert unsafe_ref.returncode != 0
     assert "安全的 Git commit" in unsafe_ref.stderr

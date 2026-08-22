@@ -24,8 +24,9 @@ from leo_ppt_generator.credentials import (
 )
 
 pytestmark = pytest.mark.skipif(
-    sys.platform != "darwin" or platform.machine().lower() not in {"arm64", "aarch64"},
-    reason="仅在 macOS arm64 上运行真实 Keychain 平台集成测试",
+    sys.platform != "darwin"
+    or platform.machine().lower() not in {"arm64", "aarch64", "x86_64", "amd64"},
+    reason="仅在 macOS arm64/x86_64 上运行真实 Keychain 平台集成测试",
 )
 
 _UNAVAILABLE_KEYCHAIN_REASONS = frozenset(

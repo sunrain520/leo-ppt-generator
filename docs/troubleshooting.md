@@ -35,7 +35,7 @@ home、凭据或 run。
 | GitHub 仓库、安装脚本或 Skill URL 返回 404 | 停止重试，改用维护者已发布的固定 tag；若尚无 tag，等待公开发布 | 仓库、tag 与三个安装 URL 均可匿名访问 |
 | 高级隔离测试显式设置的 `CODEX_HOME` 不存在 | 先创建该精确目录，再重跑同一 Plugin 命令 | Codex CLI 能加载隔离配置且不读取日常用户目录 |
 | 同名目录、双发现目录或可发现 backup | 把旧副本移出发现目录并保留备份 | 默认目录和通用目录合计只有一个活动副本 |
-| `bootstrap_platform_unsupported` | 切换到 macOS arm64 或 Windows 10/11 x64 | launcher 平台检查通过 |
+| `bootstrap_platform_unsupported` | 切换到 macOS arm64/x86_64 或 Windows 10/11 x64 | launcher 平台检查通过 |
 | `bootstrap_download_failed` | 检查网络/代理后重跑同一 launcher | 固定工件完整下载并通过 SHA-256 |
 | `bootstrap_artifact_hash_mismatch` | 停止执行并重新安装可信发布版本 | 下载 hash 与 bundle manifest 一致 |
 | `bootstrap_home_unwritable` | 把 `LEO_PPT_HOME` 设为当前用户可写目录 | bootstrap 可创建私有 stage/runtime |
@@ -110,6 +110,7 @@ PaddleOCR 缺失不会阻断图片式生成。只有 editable 阶段实际需要
 | `credential_store_acl_too_broad` | 收窄 Windows 凭据目录和 blob ACL | 仅当前用户可访问后重新检查 |
 | `credential_blob_invalid` | 在当前 Windows 用户下通过 `config repair` 重建损坏引用 | DPAPI 解密和 Provider status 通过 |
 | `credential_reference_unavailable` | 恢复同一冻结 Provider 的凭据 | 不切换既有 run，不复用旧 receipt |
+| 只需重建非敏感配置 | 运行 `"<CLI>" config reset --confirm` | Provider profile 和 receipt 已重建，Keychain/DPAPI 凭据保持不变 |
 
 允许的密钥通道只有真实 TTY 的隐藏输入、既有环境变量引用，以及用户**显式**选择的
 `--key-stdin`。禁止在聊天、明文参数、URL 参数、普通 stdin 的隐式读取、重定向或

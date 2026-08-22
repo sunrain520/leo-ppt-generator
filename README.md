@@ -2,7 +2,7 @@
 
 ## 1. 安装
 
-Leo PPT Generator 面向 macOS arm64 与 Windows 10/11 x64；不需要管理员权限，也不要求预装 Python。请选择 **一种** 安装方式，不要同时安装重复副本，也不要同时保留 Plugin 与 standalone Skill。各平台与宿主的现场验证边界见[兼容性说明](docs/compatibility.md)。
+Leo PPT Generator 面向 macOS arm64/x86_64 与 Windows 10/11 x64；不需要管理员权限，也不要求预装 Python。请选择 **一种** 安装方式，不要同时安装重复副本，也不要同时保留 Plugin 与 standalone Skill。各平台与宿主的现场验证边界见[兼容性说明](docs/compatibility.md)。
 
 远程命令以已公开的仓库和 release tag 为准；任一 URL 返回 404 时停止重试，按[故障处理](docs/troubleshooting.md)确认发布状态与唯一恢复动作。
 
@@ -102,7 +102,8 @@ Agent 会自动完成 runtime 初始化、能力检查、流程选择和恢复�
 普通用户的配置路径是 `leo-ppt config` 命令组，而不是手动组合底层 `auth`、顶层
 `provider` 或 backend 命令。`config provider configure/select/list/remove` 管 Provider，
 `config credential set/status/remove` 管凭据引用，`config status` 只检查本地状态，
-`config repair` 按当前原因恢复。`config verify --yes` 才表示对本次可能计费验证的明确同意；
+`config repair` 按当前原因恢复，`config reset --confirm` 只重建非敏感配置并保留系统凭据。
+`config verify --yes` 才表示对本次可能计费验证的明确同意；
 若当前 runtime 没有可用的 smoke executor，命令会停止而不会伪造 `ready`。
 
 可能计费的 Provider smoke 只会在你**明确同意**时执行。默认回车、超时、取消、安装、更新和宿主调用均不构成同意；跳过 smoke 是成功的配置结果，首次真实业务图片会在同一安全边界内惰性验证。

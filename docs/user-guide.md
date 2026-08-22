@@ -4,7 +4,7 @@
 
 ### 1.1 选择一种简单安装方式
 
-安装器面向 macOS arm64 与 Windows 10/11 x64，不需要管理员权限或预装 Python。Plugin 与 standalone Skill 二选一，不要同时保留重复副本；各平台现场验证状态见[兼容性说明](compatibility.md)。
+安装器面向 macOS arm64/x86_64 与 Windows 10/11 x64，不需要管理员权限或预装 Python。Plugin 与 standalone Skill 二选一，不要同时保留重复副本；各平台现场验证状态见[兼容性说明](compatibility.md)。
 
 远程安装以已公开的仓库和 release tag 为准。仓库、Skill 路径或脚本 URL 返回 404 表示该 revision 尚未公开可安装；停止重试并查看[故障处理](troubleshooting.md)。
 
@@ -149,6 +149,7 @@ leo-ppt config status --route generate --json
 | `config credential status/set/remove` | 查看或维护安全凭据引用 | 默认否 |
 | `config verify --yes` | 由用户显式请求的真实图片验证 | 是，可能计费 |
 | `config repair` | 按当前稳定 reason code 从最早未完成步骤恢复 | 默认否 |
+| `config reset --confirm` | 重建非敏感 Provider 配置并失效 receipt；保留系统凭据 | 否 |
 
 常用安全检查：
 
@@ -182,6 +183,15 @@ leo-ppt config verify --route generate --yes --json
 - PaddleOCR：[申请 Access Token](https://aistudio.baidu.com/account/accessToken)。
 
 凭据可用的安全通道只有三种：真实 TTY 的隐藏输入、已存在的环境变量引用，或用户显式选择的 `--key-stdin`。TTY 输入写入 macOS Keychain 或 Windows 当前用户 DPAPI 保护的存储；环境变量只保存例如 `env:OPENAI_API_KEY` 的引用，不复制值。
+
+非交互自动化必须显式声明输入通道，例如：
+
+```bash
+printf '%s\n' "$PROVIDER_KEY" | leo-ppt config credential set --provider openai --key-stdin
+```
+
+普通 pipe 不会被隐式读取；没有 `--key-stdin` 时，非 TTY 输入返回
+`credential_tty_required` 或 `credential_input_channel_unavailable`。
 
 不接受聊天、命令参数或 pipe 传入密钥：禁止把密钥发送到聊天、使用明文 `--api-key`、URL 查询参数，或让普通 stdin 被隐式读取。密钥不得写入 `config.yaml`、项目、Skill 目录、run、receipt、stdout、stderr 或日志。环境变量仍兼容：`OPENAI_API_KEY`、`OPENAI_COMPATIBLE_API_KEY`、`ATLASCLOUD_API_KEY` 与 `PADDLE_OCR_TOKEN`。
 

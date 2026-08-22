@@ -8,6 +8,7 @@ manager="$script_dir/runtime_manager.py"
 home="${LEO_PPT_HOME:-$HOME/Library/Application Support/leo-ppt-generator}"
 stage=""
 lock_dir=""
+architecture=""
 
 stage_event() {
   if [[ "${LEO_PPT_BOOTSTRAP_QUIET:-0}" != "1" ]]; then
@@ -17,8 +18,8 @@ stage_event() {
 
 fail_bootstrap() {
   local reason="$1" action_id="$2" command="$3" verification="$4" current_stage="$5"
-  printf '{"architecture":"arm64","cli_reference":null,"details":{},"platform":"macos","primary_action":{"command":"%s","id":"%s","verification":"%s"},"protocol":"leo-ppt-bootstrap/v1","python_source":"unknown","reason_code":"%s","runtime_identity":null,"runtime_outcome":"not_ready","schema_version":1,"stage":"%s","status":"blocked"}\n' \
-    "$command" "$action_id" "$verification" "$reason" "$current_stage"
+  printf '{"architecture":"%s","cli_reference":null,"details":{},"platform":"macos","primary_action":{"command":"%s","id":"%s","verification":"%s"},"protocol":"leo-ppt-bootstrap/v1","python_source":"unknown","reason_code":"%s","runtime_identity":null,"runtime_outcome":"not_ready","schema_version":1,"stage":"%s","status":"blocked"}\n' \
+    "$architecture" "$command" "$action_id" "$verification" "$reason" "$current_stage"
   exit 2
 }
 
@@ -40,9 +41,9 @@ trap cleanup EXIT INT TERM
 
 platform="$(uname -s 2>/dev/null || true)"
 architecture="$(uname -m 2>/dev/null || true)"
-[[ "$platform" == "Darwin" && "$architecture" == "arm64" ]] || \
-  fail_bootstrap "bootstrap_platform_unsupported" "use_supported_platform" "在 macOS arm64 或 Windows x64 上安装" "平台匹配后重新运行 bootstrap。" "platform_check"
-stage_event "platform_check" "macOS arm64 已确认"
+[[ "$platform" == "Darwin" && ( "$architecture" == "arm64" || "$architecture" == "x86_64" ) ]] || \
+  fail_bootstrap "bootstrap_platform_unsupported" "use_supported_platform" "在 macOS arm64/x86_64 或 Windows x64 上安装" "平台匹配后重新运行 bootstrap。" "platform_check"
+stage_event "platform_check" "macOS $architecture 已确认"
 
 python_bin=""
 python_source=""
@@ -90,15 +91,22 @@ if [[ -z "$python_bin" ]]; then
     else
     command -v plutil >/dev/null 2>&1 || \
       fail_bootstrap "bootstrap_manifest_parser_missing" "install_system_python" "安装 Python 3.12 后重试" "兼容 Python 可用后重新运行 bootstrap。" "python_resolve"
+    case "$architecture" in
+      arm64) artifact_key="macos-arm64" ;;
+      x86_64) artifact_key="macos-x64" ;;
+      *) artifact_key="" ;;
+    esac
+    [[ -n "$artifact_key" ]] || \
+      fail_bootstrap "bootstrap_platform_unsupported" "use_supported_platform" "在 macOS arm64/x86_64 或 Windows x64 上安装" "平台匹配后重新运行 bootstrap。" "python_resolve"
     uv_version="$(plutil -extract uv_version raw -o - "$manifest" 2>/dev/null || true)"
-    url="$(plutil -extract artifacts.macos-arm64.url raw -o - "$manifest" 2>/dev/null || true)"
-    expected_sha="$(plutil -extract artifacts.macos-arm64.sha256 raw -o - "$manifest" 2>/dev/null || true)"
-    max_bytes="$(plutil -extract artifacts.macos-arm64.max_bytes raw -o - "$manifest" 2>/dev/null || true)"
-    executable="$(plutil -extract artifacts.macos-arm64.executable raw -o - "$manifest" 2>/dev/null || true)"
+    url="$(plutil -extract artifacts.$artifact_key.url raw -o - "$manifest" 2>/dev/null || true)"
+    expected_sha="$(plutil -extract artifacts.$artifact_key.sha256 raw -o - "$manifest" 2>/dev/null || true)"
+    max_bytes="$(plutil -extract artifacts.$artifact_key.max_bytes raw -o - "$manifest" 2>/dev/null || true)"
+    executable="$(plutil -extract artifacts.$artifact_key.executable raw -o - "$manifest" 2>/dev/null || true)"
     [[ "$uv_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$expected_sha" =~ ^[0-9a-f]{64}$ && "$max_bytes" =~ ^[0-9]+$ ]] || \
       fail_bootstrap "bootstrap_manifest_invalid" "reinstall_skill" "重新安装 leo-ppt-generator" "manifest 通过结构检查后重试。" "python_resolve"
     expected_prefix="https://github.com/astral-sh/uv/releases/download/$uv_version/"
-    [[ "$url" == "$expected_prefix"* && "$executable" == "uv-aarch64-apple-darwin/uv" ]] || \
+    [[ "$url" == "$expected_prefix"* && ( "$executable" == "uv-aarch64-apple-darwin/uv" || "$executable" == "uv-x86_64-apple-darwin/uv" ) ]] || \
       fail_bootstrap "bootstrap_origin_forbidden" "reinstall_skill" "重新安装 leo-ppt-generator" "manifest origin 恢复为官方固定 HTTPS 地址后重试。" "python_resolve"
     command -v curl >/dev/null 2>&1 && command -v shasum >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 || \
       fail_bootstrap "bootstrap_download_tools_missing" "install_system_python" "安装 Python 3.12 后重试" "兼容 Python 可用后重新运行 bootstrap。" "python_resolve"
@@ -148,7 +156,7 @@ fi
 arguments=("$@")
 if [[ "${arguments[0]:-bootstrap}" == "bootstrap" ]]; then
   if ((${#arguments[@]} == 0)); then arguments=(bootstrap); fi
-  arguments+=(--python-source "$python_source" --bootstrap-platform macos --bootstrap-architecture arm64)
+  arguments+=(--python-source "$python_source" --bootstrap-platform macos --bootstrap-architecture "$architecture")
 fi
 stage_event "runtime_ensure" "调用受管 runtime manager"
 "$python_bin" "$manager" "${arguments[@]}"
