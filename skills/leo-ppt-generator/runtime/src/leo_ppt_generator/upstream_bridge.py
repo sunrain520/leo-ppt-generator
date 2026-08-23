@@ -269,11 +269,28 @@ def run_upstream(
                 if backend_contract is not None
                 else None
             )
+            effective_timeout = execution.timeout_seconds if execution else timeout_seconds
+            command = [sys.executable, str(script), *forwarded]
             result = _run(
-                [sys.executable, str(script), *forwarded],
+                command,
                 env=_isolated_env(isolated, execution),
-                timeout_seconds=execution.timeout_seconds if execution else timeout_seconds,
+                timeout_seconds=effective_timeout,
             )
+            # Image generation (2K slides take 40-90s) occasionally exceeds the
+            # contract timeout on the first call; retry once with 1.5x budget
+            # before surfacing a timeout. Retrying may bill the provider twice,
+            # so the retry is recorded in stderr for transparency.
+            if result.get("timed_out") and tool in {"image", "prepare"}:
+                retry_timeout = (effective_timeout or 120) * 1.5
+                result = _run(
+                    command,
+                    env=_isolated_env(isolated, execution),
+                    timeout_seconds=retry_timeout,
+                )
+                result["stderr"] = (
+                    "upstream_subprocess_timeout; auto-retried once "
+                    f"(timeout {retry_timeout:.0f}s)\n" + (result.get("stderr") or "")
+                )
         if execution is not None:
             result["execution_receipt"] = dict(execution.receipt)
         result["stdout"] = _rewrite_codex_cli(result["stdout"])

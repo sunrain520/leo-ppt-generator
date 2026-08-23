@@ -70,7 +70,7 @@ DEFAULTS: dict[str, Any] = {
     "max_run_bytes": 10 * 1024**3,
     "timeouts": {
         "worker_page_seconds": 600,
-        "backend_api_seconds": 60,
+        "backend_api_seconds": 300,
         "backend_api_retries": 3,
     },
     "provider_profiles": {},
