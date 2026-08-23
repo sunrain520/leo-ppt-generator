@@ -110,13 +110,20 @@ launcher、setup、backend JSON 或内部诊断步骤当作普通用户的前置
 
 ### generate
 
-读取 [图片式工作流](references/image-deck-workflow.md) 和
-[Backend 选择](references/backend-selection.md)。
+读取 [图片式工作流](references/image-deck-workflow.md)、
+[Backend 选择](references/backend-selection.md) 和
+[视觉质检规范](references/visual-qa.md)。
 
 先确认内容、大纲、完整逐页稿、视觉风格、backend 与一个样张；选择风格前读取
-[风格库](references/style-library.md)。样张通过后准备
+[风格库](references/style-library.md)。选定视觉风格、论证模式、版式与信息图
+类型后，用 `"$LEO_PPT" style render <视觉风格> --mode <论证模式> [--layout <版式>
+--image-type <信息图类型>]` 得到**确定性模板注入内容**（视觉风格 brief + 配对
+图片渲染 paste-ready + 论证骨架 + 版式骨架），写进 `deck_spec.style` 与
+`slides[].layout`；不得自由文本手写 style/layout。样张通过后准备
 slide jobs；多页时按 [slide worker prompt](prompts/slide-worker.md) 每页派发
-一个受限 worker。记录每个结果，缺页或未完成状态必须阻止组装。最终报告图片式
+一个受限 worker。记录每个结果，缺页或未完成状态必须阻止组装。每页视觉质检按
+`visual-qa.md` 对抗式审查：worker 正向自查后，父 Agent 独立复核、专门找茬，
+任一失败打回该页重做，其他检查通过不能补偿。最终报告图片式
 PPTX、逐页图片、notes、backend provenance 和验证结果。
 
 确定性阶段依次使用 `"$LEO_PPT" image prepare <run>`、

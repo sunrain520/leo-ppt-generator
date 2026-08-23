@@ -12,6 +12,8 @@ while [[ -L "$launcher_path" ]]; do
   fi
 done
 script_dir="$(cd -P "$(dirname "$launcher_path")" && pwd)"
+# 把 Skill bundle 根暴露给 runtime，供 styles/templates 定位 references。
+export LEO_PPT_BUNDLE="$(cd "$script_dir/.." && pwd -P)"
 cli_reference="$(LEO_PPT_BOOTSTRAP_QUIET=1 "$script_dir/leo-bootstrap.sh" print-cli)"
 
 if [[ "$cli_reference" != /* || ! -x "$cli_reference" ]]; then

@@ -7,12 +7,14 @@
 
 ## 两大风格模式
 
-| 模式文件 | 模式 | 调色板 | 版式配方 |
+| 权威落点文件 | 模式 | 调色板 | 版式配方 |
 |---|---|---|---|
-| `电子墨水杂志风_Guizang.md` | **Editorial Magazine × E-ink**(杂志慢节奏) | 6 套(墨经典 / 青花瓷 / 森林墨 / 牛皮纸 / 沙丘 / 夜墨) | M01–M16 |
-| `瑞士国际风_Guizang.md` | **Swiss International**(工程化量化节奏) | 4 套强调色(IKB 蓝 / 柠檬黄 / 柠檬绿 / 安全橙) | S01–S12 |
+| `../电子墨水杂志风.md`(顶层内置,已补强) | **Editorial Magazine × E-ink**(杂志慢节奏) | 6 套(墨经典 / 青花瓷 / 森林墨 / 牛皮纸 / 沙丘 / 夜墨) | M01–M16 |
+| `../01_通用母版/极简排版/瑞士网格风.md`(自研,已补强) | **Swiss International**(工程化量化节奏) | 4 套强调色(IKB 蓝 / 柠檬黄 / 柠檬绿 / 安全橙) | S01–S12 |
 
 > 模式是「视觉姿态」而非内容分类:同一主题可用任一模式,区别在于版式结构与可用构件(ledger / marginalia / pull-quote ↔ matrix / KPI tower / h-bar)。由上风意图(「feature story」vs「release note / system explainer」)选择,不按主题查表。
+>
+> **说明**:本目录不再单独存放两份模式风格文件——Guizang 权威内容已折叠进上述两个权威落点(替换/补强,不并存)。本文件仅作为来源与配方索引保留。
 
 ## 版式配方索引
 
@@ -39,6 +41,27 @@
 
 「更大的字更轻」对 Editorial 与 Swiss 都是硬规则。
 
+## 组件模板（`组件模板/`，规则手册，非风格 brief）
+
+> 从 Guizang 系统提取的第二层——**组件/规则模板**，与「风格 brief」正交：管 deck 结构、图文叠放、截图、地图、竖图填充、标题压缩。每个文件保留真实规则与数值，并补 16:9 适配注记。
+
+- `deck结构模板.md` — 压缩阶梯 / 页面角色 / 封面钩子 / 图像主导序列 / 页数参考 / 元信息（`content-planning.md`）
+- `图文叠放规则.md` — 选图两测试 / 无遮罩优先 / 取图像色局部 tint / subject map / 裁剪守卫 / 交付清单（`image-overlay.md`）
+- `截图处理模板.md` — frame-shot 六参数 / 9 张纹理背景 / device chrome / 安全区裁剪（`screenshot-treatment.md`）
+- `地图组件模板.md` — 三模式（Mapbox/OSM/示意 SVG）/ 硬规则 / pin 放置 / 色调 token（`map-component.md`）
+- `竖图填充规则.md` — 竖向五区 / 欠填气味 / 最小占用率 78% / 页面节奏（`portrait-fill.md`）
+- `标题压缩模板.md` — 五步提取 / 1:1 句式 / 反模式 / 字号 / 跨平台配对（`title-shortener.md`）
+
 ## 来源文件
 
-`style-system.md` · `theme-presets.md` · `layout-recipes.md` · `components.md` · `background-systems.md` · `category-cookbook.md` · `platform-specs.md`
+`style-system.md` · `theme-presets.md` · `layout-recipes.md` · `components.md` · `background-systems.md` · `category-cookbook.md` · `platform-specs.md` · `content-planning.md` · `image-overlay.md` · `screenshot-treatment.md` · `map-component.md` · `portrait-fill.md` · `title-shortener.md`
+
+> 种子 HTML 模板（`assets/template-editorial-card.html` 838 行 / `template-swiss-card.html` 943 行）与 `live-photo-production.md`、`production-workflow.md`、`qa-checklist.md` 属实现与流程层，未转写进本库；需要时直接读上游 `assets/`。
+
+## 深度内化（跨风格护栏）
+
+Guizang 最强的不是 28 个配方，而是那些**跨风格的元原则**。已把它们提炼、泛化到 16:9 PPT 语境，形成一条**上位约束**：
+
+→ [`../00_索引/通用设计规范.md`](../00_索引/通用设计规范.md)
+
+内容涵盖：排印铁律（越大越轻 / 先缩文案再缩字号 / 语义断行 / 混排克制）、版式铁律（内容定版式 / 一页一焦点 / 不欠填 78% / 页面节奏）、配色铁律（单一强调色 / 60-30-10 / 强调是信号）、图像铁律（图是证据 / 选图两测试 / 主体避让 / 局部取图像色 tint）、身份自检 6 问、反模式/坏味道清单。**所有风格 brief 之上先过这套护栏**，再走各风格自身约束。

@@ -67,6 +67,7 @@ from .storage import (
     sha256_bytes,
 )
 from .styles import StyleStoreError, list_styles, load_style, save_style
+from .templates import TemplateError, compose_layout, compose_style, list_templates
 from .upgrade.baseline import (
     import_baseline,
     inspect_image_delivery,
@@ -1298,6 +1299,13 @@ def build_parser() -> argparse.ArgumentParser:
     style_load = style_commands.add_parser("load")
     style_load.add_argument("name")
     style_load.add_argument("--home")
+    style_render = style_commands.add_parser("render")
+    style_render.add_argument("style")
+    style_render.add_argument("--home")
+    style_render.add_argument("--mode", help="论证模式名（06_论证模式）")
+    style_render.add_argument("--layout", help="版式名（12_版式库，如 P6 / KPI Tower）")
+    style_render.add_argument("--image-type", help="信息图类型名（07_信息图类型）")
+    style_render.add_argument("--list-templates", action="store_true")
     style_save = style_commands.add_parser("save")
     style_save.add_argument("name")
     style_save.add_argument("--content-file", required=True)
@@ -2466,6 +2474,20 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
         if args.style_command == "load":
             result = load_style(args.name, home=home)
             return envelope("ready", "style_loaded", style=result, safe_to_retry=True)
+        if args.style_command == "render":
+            if getattr(args, "list_templates", False):
+                return envelope(
+                    "ready", "templates_listed",
+                    templates=list_templates(), safe_to_retry=True,
+                )
+            result = compose_style(args.style, mode=args.mode)
+            if args.layout:
+                result["layout"] = compose_layout(
+                    args.layout, image_type=args.image_type
+                )
+            return envelope(
+                "ready", "style_rendered", template=result, safe_to_retry=True,
+            )
         try:
             content = Path(args.content_file).read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc:

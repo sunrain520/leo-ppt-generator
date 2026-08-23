@@ -21,7 +21,8 @@
    canonical state。聊天回复不改变状态，取消后的迟到 lease 会被拒绝。
 10. 对每页分别关闭文字准确性、可读性/对比度、遮挡/截断、required asset、
     图表数据/单位/标签/排序和样张风格继承；任一失败都阻止该页 accepted，其他检查
-    通过不能补偿。
+    通过不能补偿。视觉质检按 [`visual-qa.md`](visual-qa.md) 执行：worker 正向自查 →
+    父 Agent 独立复核 → 对抗式审查 → 任一失败打回重做，而非正向打勾。
 11. 用 `"$LEO_PPT" run status <run> --json` 和 `"$LEO_PPT" image assemble <run>`
     确认全部页 recorded 后组装。缺页不得进入组装。
 12. 重新打开 PPTX，核对页数、notes、结构和交付类型。最终任一 slide 图片 hash

@@ -53,6 +53,9 @@
 | `style_loaded` | 风格内容已读取 | 不适用 | 使用返回的内容与 sha256 作为本次运行的风格输入 |
 | `style_saved` | 用户风格已原子保存 | 不适用 | 保存返回的路径与 sha256，后续运行优先读取该风格 |
 | `style_store_error` | 风格库操作的兜底错误 | 条件式 | 读取具体子 reason code 后修复并重试 |
+| `style_rendered` | 模板确定性注入内容已渲染 | 不适用 | 将返回的 template 写入 deck_spec.style 与 slides[].layout |
+| `templates_listed` | 模板轴清单已枚举 | 不适用 | 从清单选择渲染/版式/信息图/模式名 |
+| `template_store_error` | 模板知识库加载失败或模板不存在 | 是 | 用 `style render --list-templates` 查看可用名后重试 |
 | `backend_contract_unreadable` | 冻结的 backend contract 无法读取 | 是 | 检查 run 输入树与文件权限，必要时创建新 run |
 | `credential_reference_invalid` | 凭据引用不是允许的 `env:`、`host:` 或 `keychain:` 形式 | 是 | 使用 provider allowlist 中的引用，不写入原始凭据 |
 | `credential_reference_unavailable` | 声明的凭据引用当前不可解析 | 是 | 在宿主注入对应环境变量或启用明确 resolver |

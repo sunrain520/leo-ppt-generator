@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -40,8 +41,48 @@ def user_style_path(name: str, *, home: Path | None = None) -> Path:
 
 
 def builtin_style_path(name: str) -> Path:
-    root = Path(__file__).resolve().parents[3] / "references/styles"
-    return root / f"{_validate_name(name)}.md"
+    return _builtin_styles_dir() / f"{_validate_name(name)}.md"
+
+
+def _builtin_styles_dir() -> Path:
+    """Locate references/styles in both layouts: the installed launcher exports
+    LEO_PPT_BUNDLE (the skill bundle root), while in-repo development falls back
+    to the parents[3] relative layout."""
+    override = os.environ.get("LEO_PPT_BUNDLE")
+    if override and override.strip():
+        candidate = Path(override).expanduser() / "references/styles"
+        if candidate.is_dir():
+            return candidate
+    return Path(__file__).resolve().parents[3] / "references/styles"
+
+
+def _builtin_root() -> Path:
+    return builtin_style_path("_placeholder").parent
+
+
+def _is_style_md(path: Path) -> bool:
+    """A style file carries a GPT-Image-2 JSON brief; docs/axes/indices don't.
+
+    The reference library mixes two kinds of markdown: full style briefs
+    (which embed a ```json``` block) and axis/rule documents (论证模式、信息图
+    类型、图片渲染、版式库 etc., which are prose-only). Only the former are
+    loadable styles; this predicate keeps the prose axes out of list_styles.
+    """
+    try:
+        return "```json" in path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return False
+
+
+def _find_builtin_style(name: str) -> Path:
+    """Top-level builtin first, then any subdirectory reference style."""
+    top = builtin_style_path(name)
+    if top.is_file():
+        return top
+    for path in sorted(_builtin_root().rglob(f"{_validate_name(name)}.md")):
+        if path.is_file() and _is_style_md(path):
+            return path
+    return top
 
 
 def save_style(
@@ -67,7 +108,7 @@ def save_style(
 
 def load_style(name: str, *, home: Path | None = None) -> dict:
     user = user_style_path(name, home=home)
-    path = user if user.is_file() else builtin_style_path(name)
+    path = user if user.is_file() else _find_builtin_style(name)
     if not path.is_file():
         raise StyleStoreError("style_not_found")
     try:
@@ -75,9 +116,15 @@ def load_style(name: str, *, home: Path | None = None) -> dict:
     except (OSError, UnicodeError) as exc:
         raise StyleStoreError("style_unreadable") from exc
     content = _sanitize(content)
+    if path == user:
+        source = "user"
+    elif path.parent == _builtin_root():
+        source = "builtin"
+    else:
+        source = "reference"
     return {
         "name": path.stem,
-        "source": "user" if path == user else "builtin",
+        "source": source,
         "path": str(path),
         "content": content,
         "sha256": sha256_bytes(content.encode("utf-8")),
@@ -85,10 +132,22 @@ def load_style(name: str, *, home: Path | None = None) -> dict:
 
 
 def list_styles(*, home: Path | None = None) -> list[dict]:
-    builtin_root = builtin_style_path("_placeholder").parent
+    builtin_root = _builtin_root()
     names: dict[str, dict] = {}
+    # Top-level builtins take precedence over same-named reference styles.
     for path in sorted(builtin_root.glob("*.md")):
+        if not _is_style_md(path):
+            continue
         names[path.stem] = {"name": path.stem, "source": "builtin", "path": str(path)}
+    # Subdirectory reference styles; skip prose axis documents via _is_style_md.
+    for path in sorted(builtin_root.rglob("*.md")):
+        if path.parent == builtin_root:
+            continue
+        if not _is_style_md(path):
+            continue
+        if path.stem in names:
+            continue
+        names[path.stem] = {"name": path.stem, "source": "reference", "path": str(path)}
     user_root = (home or default_home()) / "styles"
     for path in sorted(user_root.glob("*.md")) if user_root.is_dir() else []:
         names[path.stem] = {"name": path.stem, "source": "user", "path": str(path)}
