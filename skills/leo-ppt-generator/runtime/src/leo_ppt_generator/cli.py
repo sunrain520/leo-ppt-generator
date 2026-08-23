@@ -124,9 +124,12 @@ def _version_report() -> dict[str, Any]:
         runtime_identity = current["runtime_identity"]
     if isinstance(current.get("bundle_root"), str):
         bundle_root = current["bundle_root"]
-    if isinstance(current.get("install_channel"), str):
-        install_channel = current["install_channel"]
+    _KNOWN_CHANNELS = {"plugin", "agent-skill", "standalone"}
+    recorded = current.get("install_channel")
+    if isinstance(recorded, str) and recorded in _KNOWN_CHANNELS:
+        install_channel = recorded
     else:
+        # 元数据缺失或非法渠道（空串、手改值）时按 bundle 路径推导，不原样透传。
         normalized_bundle = str(bundle_root or "").replace("\\", "/")
         if "/plugins/" in normalized_bundle:
             install_channel = "plugin"
@@ -1011,6 +1014,11 @@ def build_parser() -> argparse.ArgumentParser:
     config_commands = config.add_subparsers(dest="config_command")
     config_status = config_commands.add_parser("status")
     config_status.add_argument("--route")
+    config_status.add_argument(
+        "--host-imagegen",
+        choices=("available", "unavailable", "unknown"),
+        default="unknown",
+    )
     config_status.add_argument("--json", action="store_true")
     config_verify = config_commands.add_parser("verify")
     config_verify.add_argument("--route")
@@ -1593,7 +1601,14 @@ def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
 
     service = _config_service()
     if command == "status":
-        report = service.status(request)
+        host_capabilities = (
+            ("generate",) if args.host_imagegen == "available" else ()
+        )
+        report = service.status(
+            request,
+            host_capability_state=args.host_imagegen,
+            host_capabilities=host_capabilities,
+        )
         return envelope(
             report.status.value,
             report.reason_code,

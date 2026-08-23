@@ -589,6 +589,13 @@ class RuntimeManager:
         installer = _download_raw(
             ref, installer_name, maximum_bytes=MAX_INSTALLER_BYTES
         )
+        # 升级时保留当前安装渠道，避免 agent-skill 安装被 update 误标为 standalone。
+        # update 用 --target 绝对路径（与 --agents 互斥），因此经 env 透传渠道。
+        current = self._read_current_safely()
+        current_channel = current.get("install_channel")
+        update_env = os.environ.copy()
+        if current_channel in {"plugin", "agent-skill", "standalone"}:
+            update_env["LEO_PPT_PROVIDED_CHANNEL"] = current_channel
         with tempfile.TemporaryDirectory(prefix="leo-ppt-update-") as directory:
             installer_path = Path(directory) / installer_name
             installer_path.write_bytes(installer)
@@ -624,6 +631,7 @@ class RuntimeManager:
                 capture_output=True,
                 timeout=1800,
                 check=False,
+                env=update_env,
             )
         if result.returncode != 0:
             detail = (result.stderr.strip() or result.stdout.strip())[-4000:]
@@ -644,6 +652,18 @@ class RuntimeManager:
         identity = value.get("runtime_identity")
         if not isinstance(identity, str) or not self._healthy(identity):
             raise RuntimeIncompatibleError("current runtime 不完整或验证失败")
+        return value
+
+    def _read_current_safely(self) -> dict[str, Any]:
+        """读取 current 元数据但不因缺失/损坏/不健康抛错；返回 {} 表示无可用快照。"""
+        if not self.current_path.is_file():
+            return {}
+        try:
+            value = read_json(self.current_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return {}
+        if not isinstance(value, dict):
+            return {}
         return value
 
     def print_cli(self) -> str:
@@ -816,9 +836,19 @@ class RuntimeManager:
         }
 
     def _restore_previous_bundle(self, backup: Path, operation_id: str) -> Path | None:
-        """把当前 bundle 回退到记录的上一个 bundle 备份，返回被挪走的当前 bundle 备份路径。"""
+        """把当前 bundle 回退到记录的上一个 bundle 备份，返回被挪走的当前 bundle 备份路径。
+
+        整体为原子替换：若 bundle_root 缺失或回滚失败，绝不允许在失败后留下
+        “新 runtime + 旧 bundle”或“旧 bundle 已挪走但未就位”的分裂态。
+        """
         backup = Path(backup).expanduser().resolve()
         if not backup.is_dir() or backup == self.bundle_root:
+            return None
+        if not self.bundle_root.is_dir():
+            # 安装激活窗口中断（当前 bundle 已被 mv 走、备份仍在）：唯一恢复路径是
+            # 直接把备份就位成 bundle_root，而不是把“唯一旧包”判死。
+            os.replace(backup, self.bundle_root)
+            fsync_directory(self.bundle_root.parent)
             return None
         backup_root = self.bundle_root.parent / f".{self.bundle_root.name}-backups"
         backup_root.mkdir(parents=True, exist_ok=True)
@@ -828,11 +858,23 @@ class RuntimeManager:
         while displaced.exists():
             counter += 1
             displaced = displaced.with_name(f"{displaced.name}.{counter}")
-        os.replace(self.bundle_root, displaced)
+        # 先把当前 bundle 挪到 displaced（备份），再把 backup 就位成 bundle_root。
+        # 任一 os.replace 抛错都要把已挪走的部分回滚到原始位置，保持 bundle_root
+        # 与原值一致，而不是留在半切换态。
+        try:
+            os.replace(self.bundle_root, displaced)
+        except OSError as error:
+            raise RuntimeInstallError(
+                f"bundle_rollback_displace_failed: {error}"
+            ) from error
         try:
             os.replace(backup, self.bundle_root)
         except OSError as error:
-            os.replace(displaced, self.bundle_root)
+            # 恢复原 bundle，再抛出；避免当前 bundle 丢失。
+            try:
+                os.replace(displaced, self.bundle_root)
+            except OSError:
+                pass
             raise RuntimeInstallError(f"bundle_rollback_failed: {error}") from error
         fsync_directory(self.bundle_root.parent)
         return displaced
@@ -842,19 +884,43 @@ class RuntimeManager:
     ) -> dict[str, Any]:
         operation_id = operation_id or uuid.uuid4().hex
         with InstallLock(self.lock_path):
-            snapshot = self.current()
+            # 显式 --identity 回滚必须是 known-good 旧版逃生通道：允许在不健康 current
+            # 下仍通过 target health 校验后切换，因此只在需要 previous 时读 current。
             if identity is None:
+                snapshot = self.current()
                 candidate = snapshot.get("previous_runtime_identity")
                 if not isinstance(candidate, str):
                     raise RuntimeIncompatibleError("没有可回滚的上一健康 runtime")
                 identity = candidate
-            previous_bundle_backup = snapshot.get("previous_bundle_backup")
+                previous_bundle_backup = snapshot.get("previous_bundle_backup")
+            else:
+                snapshot = self._read_current_safely()
+                previous_bundle_backup = (
+                    snapshot.get("previous_bundle_backup")
+                    if isinstance(snapshot, dict)
+                    else None
+                )
+            # 先校验目标 identity 健康，再动 bundle：不健康就不必触碰磁盘，
+            # 避免“先换 bundle、后才发现目标不可用”的脱落。
+            if not self._healthy(identity):
+                raise RuntimeIncompatibleError(
+                    f"不能回滚到未验证 runtime：{identity}"
+                )
             restored_backup = None
             if isinstance(previous_bundle_backup, str):
                 restored_backup = self._restore_previous_bundle(
                     Path(previous_bundle_backup), operation_id
                 )
-            current = self._switch_current(identity, operation_id)
+            # 让本次 _switch_current 记录“被挪走的当前 bundle”，使下一次 rollback
+            # 能把 bundle 与 runtime 一起回退到这一代，而不是只回 venv。
+            if restored_backup is not None:
+                os.environ["LEO_PPT_PREVIOUS_BUNDLE_BACKUP"] = str(restored_backup)
+            else:
+                os.environ.pop("LEO_PPT_PREVIOUS_BUNDLE_BACKUP", None)
+            try:
+                current = self._switch_current(identity, operation_id)
+            finally:
+                os.environ.pop("LEO_PPT_PREVIOUS_BUNDLE_BACKUP", None)
             return {
                 "protocol": "leo-ppt-update/v1",
                 "schema_version": 1,

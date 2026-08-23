@@ -145,7 +145,7 @@ def test_posix_onboarding_reports_local_state_without_waiting_for_non_tty(tmp_pa
     ]
     assert "安装状态：已安装" in result.stdout
     assert "配置状态：not_configured" in result.stdout
-    assert "真实验证状态：not_run" in result.stdout
+    assert "真实验证状态：未验证（尚未生成过图片）" in result.stdout
     assert "执行资格：blocked" in result.stdout
     assert "安装可用性：installed_not_ready" in result.stdout
     assert "未检测到交互终端；不会等待配置输入或发起可能计费的验证。" in result.stdout
@@ -215,6 +215,14 @@ def test_posix_onboarding_activates_before_ready_and_usable_reports(tmp_path: Pa
         ),
     )
 
+    # install.sh 的 verification_label 把状态值映射为用户可见中文标签。
+    verification_label = {
+        "passed": "已通过真实验证",
+        "failed": "真实验证失败",
+        "stale": "已过期（配置/模型/凭据已变化，需重新验证）",
+        "not_run": "未验证（尚未生成过图片）",
+    }
+
     for status, readiness, eligibility, configuration, verification in scenarios:
         source = _make_source(tmp_path / f"source {status} 'quoted'")
         target = tmp_path / f"install {status} 'quoted'" / "leo-ppt-generator"
@@ -243,7 +251,7 @@ def test_posix_onboarding_activates_before_ready_and_usable_reports(tmp_path: Pa
         assert (target / "SKILL.md").is_file()
         assert result.stdout.index("install[activate]") < result.stdout.index("install[onboarding]")
         assert f"配置状态：{configuration}" in result.stdout
-        assert f"真实验证状态：{verification}" in result.stdout
+        assert f"真实验证状态：{verification_label[verification]}" in result.stdout
         assert f"执行资格：{eligibility}" in result.stdout
         assert f"安装可用性：{readiness}" in result.stdout
         assert log.read_text(encoding="utf-8").splitlines()[-1] == "onboard --route generate"

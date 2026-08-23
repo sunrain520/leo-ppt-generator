@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added - 2026-08-23
 
+- 新增 100 种可参考 PPT 风格库：按 `01_通用母版（30）/ 02_行业内容域（35）/ 03_场景用途结构（35）` 三层多级分类，存放于 `references/styles/` 下；每风格含完整 GPT-Image-2 JSON Brief（visual_direction / canvas / color_palette / typography / layout_patterns / layout_usage_rule / layout_blueprints / visual_elements / rendering_constraints）与 `reference` 来源，并新增 `00_索引/_INDEX.md` 总索引。均为独立候选参考风格（`list_styles()` 载入 glob `references/styles/*.md`，不自动加载子目录），现有 12 个内置风格保持不变。(user-visible)。作者: leokuang
 - 新增 macOS Intel (x86_64) 支持：固定 `macos-x64` uv artifact、`darwin-x86_64`
   约束锁、bootstrap/install 平台门与 Keychain 集成测试覆盖；目标安装平台扩展为
   macOS arm64/x86_64 与 Windows 10/11 x64。
@@ -20,6 +21,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - 补充仓库卫生规则：忽略 `.spec-first/cache`、`.hypothesis`、`.ruff_cache`、`.venv`、
   `.env`、`.DS_Store`、`*.bak` 与 `semantic-review`，并将已误提交的 MCP warmup 缓存与
   graphify 备份移出 Git 跟踪。
+- 加固安装/升级/回滚一致性：`rollback` 先校验目标 runtime 健康再动 bundle，支持显式
+  `--identity` 在 current 不健康时回滚到已知健康旧版；bundle 恢复整体原子化并在激活窗口
+  中断时直接把备份就位，避免旧包丢失或新 runtime + 旧 bundle 分裂；二次回滚记录并还原
+  bundle 备份。
+- `version` 的 `install_channel` 拒绝空值/未知值并按 install 渠道透传，agent-skill 安装
+  经 `update` 升级后不再被误标为 standalone（Windows 渠道登记仍属未验证范围）。
+- `_restore_previous_bundle` 首个替换失败给出可诊断错误而非裸 `FileNotFoundError` 逃逸。
 
 ### Added - 2026-08-22
 

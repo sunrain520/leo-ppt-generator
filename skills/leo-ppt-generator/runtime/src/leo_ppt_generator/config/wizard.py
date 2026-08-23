@@ -17,7 +17,7 @@ from ..credentials import (
     CredentialInputResolver,
     CredentialInputSelection,
 )
-from .models import ConfigReport, ProviderName
+from .models import ConfigReport, ConfigStatus, ProviderName, VerificationState
 from .runtime_config import RuntimeConfigError, validate_endpoint_origin
 from .service import (
     ConfigureRequest,
@@ -138,8 +138,18 @@ class ConfigWizard:
 
         if not changed:
             self._write("配置未修改，已保留当前设置。")
-        elif report.status.value in {"ready", "configured_unverified"}:
-            self._write("配置完成，可以开始使用；首次生成图片时验证服务。")
+        elif report.status == ConfigStatus.READY:
+            self._write("配置完成，已验证可用，可以开始生成。")
+        elif report.status == ConfigStatus.CONFIGURED_UNVERIFIED:
+            if report.verification_state == VerificationState.STALE:
+                self._write(
+                    "配置已更新；此前的验证已失效（配置、模型或凭据已变化），"
+                    "下次生成图片时会重新验证。"
+                )
+            else:
+                self._write(
+                    "配置已保存，但尚未真实验证；首次生成图片时会完成验证。"
+                )
         return WizardResult(report=report)
 
     def _profile_inputs(

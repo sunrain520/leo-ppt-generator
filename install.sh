@@ -270,7 +270,9 @@ if [[ -e "$target" ]]; then
   mkdir -p "$backup_root"
   backup="$backup_root/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 fi
-install_channel="standalone"
+# 渠道优先取宿主/update 透传值（如 agent-skill 安装经 update 升级时保留原渠道），
+# 否则按本命令行来源决定；禁止透传非法值，避免 version 误报。
+install_channel="${LEO_PPT_PROVIDED_CHANNEL:-standalone}"
 if [[ "$agents_mode" == "1" ]]; then
   install_channel="agent-skill"
 fi
@@ -358,6 +360,16 @@ onboarding_value() {
   printf '%s' "${value:-$fallback}"
 }
 
+verification_label() {
+  case "$verification_status" in
+    passed) printf '已通过真实验证' ;;
+    failed) printf '真实验证失败' ;;
+    stale) printf '已过期（配置/模型/凭据已变化，需重新验证）' ;;
+    not_run) printf '未验证（尚未生成过图片）' ;;
+    *) printf '%s' "$verification_status" ;;
+  esac
+}
+
 run_post_activation_onboarding() {
   printf 'install[onboarding]: 正在检查图片服务配置…\n'
   if ! "$target/scripts/leo-bootstrap.sh" onboard --route generate >"$onboarding_log"; then
@@ -379,7 +391,7 @@ run_post_activation_onboarding() {
 print_onboarding_report() {
   printf '安装状态：已安装\n'
   printf '配置状态：%s\n' "$configuration_state"
-  printf '真实验证状态：%s\n' "$verification_status"
+  printf '真实验证状态：%s\n' "$(verification_label)"
   printf '执行资格：%s\n' "$execution_eligibility"
   printf '安装可用性：%s\n' "$installation_readiness"
   printf '原因：%s\n' "$onboarding_reason"
@@ -389,7 +401,11 @@ print_onboarding_report() {
       printf '图片服务已就绪，可以开始生成 PPT。\n'
       ;;
     usable_unverified)
-      printf '配置完成，可以开始使用；首次生成图片时验证服务。\n'
+      if [[ "$verification_status" == "stale" ]]; then
+        printf '配置已更新，但此前验证已失效；下次生成图片时会重新验证。\n'
+      else
+        printf '配置完成，可以开始使用；首次生成图片时验证服务。\n'
+      fi
       ;;
     *)
       printf 'Skill 已安装，但当前图片服务尚未就绪。\n'

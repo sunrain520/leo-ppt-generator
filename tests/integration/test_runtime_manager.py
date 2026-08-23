@@ -428,6 +428,49 @@ class RuntimeManagerTest(unittest.TestCase):
                 (displaced / "runtime" / "pyproject.toml").read_text(encoding="utf-8"),
             )
 
+    def test_rollback_explicit_identity_allowed_when_current_unhealthy(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            home = root / "home"
+            first = module.RuntimeManager(make_bundle(root, "0.0.1"), home).ensure()
+            second = module.RuntimeManager(make_bundle(root, "0.0.2"), home).ensure()
+            manager = module.RuntimeManager(root / "bundle-0.0.2", home)
+
+            # 模拟 current venv 损坏：显式 --identity 回滚到已知健康的旧版不应被
+            # current() 的 health 检查拦住（这是升级后唯一的逃生通道）。
+            current_venv = Path(second["runtime_dir"]) / "venv"
+            shutil.rmtree(current_venv, ignore_errors=True)
+
+            rolled = manager.rollback(first["runtime_identity"])
+            self.assertEqual(first["runtime_identity"], rolled["runtime_identity"])
+            self.assertEqual("runtime_rolled_back", rolled["reason_code"])
+
+    def test_rollback_rejects_unhealthy_target_without_touching_bundle(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            home = root / "home"
+            first = module.RuntimeManager(make_bundle(root, "0.0.1"), home).ensure()
+            manager = module.RuntimeManager(make_bundle(root, "0.0.2"), home)
+            manager.ensure()
+            backup = root / "backups" / "v1"
+            shutil.copytree(root / "bundle-0.0.1", backup)
+            current = module.read_json(manager.current_path)
+            current["previous_bundle_backup"] = str(backup)
+            module.atomic_write_json(manager.current_path, current)
+
+            # 目标 identity 不健康：必须拒绝且不得把 bundle 挪走。
+            unhealthy_old = first["runtime_identity"]
+            shutil.rmtree(
+                Path(first["runtime_dir"]), ignore_errors=True
+            )
+            with self.assertRaises(module.RuntimeIncompatibleError):
+                manager.rollback(unhealthy_old)
+            # bundle_root 未被挪走，备份目录里仍保留旧包。
+            self.assertTrue((root / "bundle-0.0.2").is_dir())
+            self.assertTrue(backup.is_dir())
+
     def test_remove_fails_closed_when_run_or_current_metadata_is_corrupt(self) -> None:
         module = load_manager()
         with tempfile.TemporaryDirectory() as temp:
@@ -504,6 +547,34 @@ class RuntimeManagerTest(unittest.TestCase):
                 result = manager.update("v0.0.2")
             self.assertTrue(result["updated"])
             self.assertIs(runner.call_args.kwargs["stdin"], subprocess.DEVNULL)
+
+    def test_update_preserves_install_channel_through_installer_env(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manager = module.RuntimeManager(make_bundle(root, "0.0.1"), root / "home")
+            # 模拟 agent-skill 安装记录：current 元数据带 install_channel=agent-skill。
+            manager.ensure()
+            current = module.read_json(manager.current_path)
+            current["install_channel"] = "agent-skill"
+            module.atomic_write_json(manager.current_path, current)
+
+            preview = {
+                "protocol": "leo-ppt-update/v1",
+                "schema_version": 1,
+                "status": "update_available",
+                "reason_code": "release_update_available",
+                "update_available": True,
+            }
+            completed = SimpleNamespace(returncode=0, stdout="updated", stderr="")
+            with (
+                mock.patch.object(manager, "release_check", return_value=preview),
+                mock.patch.object(module, "_download_raw", return_value=b"#!/bin/sh\n"),
+                mock.patch.object(module.subprocess, "run", return_value=completed) as runner,
+            ):
+                manager.update("v0.0.2")
+            env = runner.call_args.kwargs.get("env", os.environ)
+            self.assertEqual("agent-skill", env["LEO_PPT_PROVIDED_CHANNEL"])
 
     def test_rollback_without_identity_uses_previous_healthy_runtime(self) -> None:
         module = load_manager()

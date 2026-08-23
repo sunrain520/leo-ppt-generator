@@ -510,6 +510,24 @@ def test_config_status_uses_module_launcher_without_console_script(tmp_path, mon
         assert tokens[4:] in ([], ["change"], ["repair"], ["verify"])
 
 
+def test_config_status_host_imagegen_available_reports_ready(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
+    for name in (
+        "OPENAI_API_KEY",
+        "OPENAI_COMPATIBLE_API_KEY",
+        "ATLASCLOUD_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    result = cli.dispatch(
+        parse("config", "status", "--json", "--host-imagegen", "available")
+    )
+
+    assert result["status"] == "ready"
+    assert result["reason_code"] == "configuration_ready"
+    assert result["report"]["installation_readiness"] == "ready"
+
+
 def test_version_command_has_human_and_machine_contract(capsys):
     report = cli.dispatch(parse("version", "--json"))
     assert report == {
@@ -527,6 +545,30 @@ def test_version_command_has_human_and_machine_contract(capsys):
     }
     assert cli.main(["version"]) == 0
     assert f"leo-ppt {cli.__version__}" in capsys.readouterr().out
+
+
+def test_version_rejects_unknown_or_empty_install_channel(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    from leo_ppt_generator.config.runtime_config import default_home as runtime_home
+
+    current_dir = runtime_home()
+    current_dir.mkdir(parents=True, exist_ok=True)
+    for bad in ("", "hand-edited-channel"):
+        (current_dir / "current").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "runtime_identity": "abc",
+                    "bundle_root": "/fake/bundle",
+                    "install_channel": bad,
+                }
+            ),
+            encoding="utf-8",
+        )
+        report = cli.dispatch(parse("version", "--json"))
+        # 非法渠道被降级为路径推导，而非原样透传空串/手改值。
+        assert report["install_channel"] != bad
 
 
 def test_setup_and_config_provider_share_openai_compatible_choice():

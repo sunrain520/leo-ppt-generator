@@ -16,6 +16,7 @@ from ..credentials import CredentialInputChannel, CredentialInputSelection
 from .models import (
     Capability,
     ConfigReport,
+    HostCapabilityState,
     ProviderName,
     RouteName,
 )
@@ -122,12 +123,23 @@ class ConfigService:
             self.action_materializer = action_materializer
 
     # ------------------------------------------------------------------ status
-    def status(self, request: StatusRequest) -> ConfigReport:
+    def status(
+        self,
+        request: StatusRequest,
+        *,
+        host_capability_state: HostCapabilityState = HostCapabilityState.UNKNOWN,
+        host_capabilities: Sequence[Capability | str] = (),
+    ) -> ConfigReport:
         """只读状态：只访问 ConfigStore/CredentialStore metadata/Registry/
         ReceiptStore；绝不访问 Provider port。"""
 
         snapshot = self.config_store.read()
-        return self._build_report(snapshot, request)
+        return self._build_report(
+            snapshot,
+            request,
+            host_capability_state=host_capability_state,
+            host_capabilities=host_capabilities,
+        )
 
     # --------------------------------------------------------------- configure
     def configure(self, request: ConfigureRequest) -> ConfigReport:
@@ -284,6 +296,9 @@ class ConfigService:
         snapshot: RuntimeConfig,
         request: StatusRequest,
         operation_context: OperationContext | None = None,
+        *,
+        host_capability_state: HostCapabilityState = HostCapabilityState.UNKNOWN,
+        host_capabilities: Sequence[Capability | str] = (),
     ) -> ConfigReport:
         facts = self._provider_facts(snapshot)
         selected = snapshot.values.get("selected_provider")
@@ -301,6 +316,8 @@ class ConfigService:
             selected_provider=selected_name,
             route=request.route or self.default_route,
             task_capabilities=request.task_capabilities,
+            host_capability_state=host_capability_state,
+            host_capabilities=host_capabilities,
             operation_context=operation_context,
             action_materializer=self.action_materializer,
         )
