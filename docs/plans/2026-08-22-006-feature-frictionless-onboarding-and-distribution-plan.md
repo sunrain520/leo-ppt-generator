@@ -429,7 +429,7 @@ flowchart TB
 ### U7. Documentation and lifecycle UX
 
 - **Goal:** 将 README 重构为最短成功路径，把完整安装、凭据、升级、卸载、固定版本、故障处理和证据边界放入对应文档。
-- **Files:** `README.md`、`docs/user-guide.md`、`docs/compatibility.md`、`docs/limitations.md`、`docs/testing.md`、新增 `docs/troubleshooting.md`、`CHANGELOG.md`、`tests/release/test_release_docs.py`。
+- **Files:** `README.md`、`docs/guides/user-guide.md`、`docs/guides/compatibility.md`、`docs/guides/limitations.md`、`docs/guides/testing.md`、新增 `docs/guides/troubleshooting.md`、`CHANGELOG.md`、`tests/release/test_release_docs.py`。
 - **Architecture posture:** extend current docs ownership；不在 Skill bundle 增加重复 README。
 - **Behavior:** README 首屏依次展示 Plugin/Agent 安装、首次使用示例、零密钥/一个图片密钥/可选 OCR 三档；高级命令移出主路径；macOS/Windows 示例对等；说明 `configured_unverified` 可立即开始、付费 smoke 仅明确同意后执行、首次业务图片会惰性验证；错误入口按 primary action 索引。
 - **Test scenarios:** 所有链接可达；命令来自真实 CLI help；平台示例 parity；禁止历史项目信息；密钥申请入口和安全警告存在；费用文案将交互默认值设为“否”，且不把默认回车、超时、取消、安装、更新或宿主调用视为同意；README 不要求普通用户手写 backend JSON；限制和现场证据声明一致。
@@ -438,7 +438,7 @@ flowchart TB
 ### U8. Murphy-driven journey tests and experience gates
 
 - **Goal:** 用全新环境和真实用户旅程验证简化没有制造假绿、安全回退或平台分叉。
-- **Files:** 新增 `tests/journeys/test_first_use.py`、新增 `tests/journeys/test_credential_recovery.py`、`tests/release/test_installer.py`、`tests/release/test_installed_routes.py`、`tests/e2e/test_offline_routes.py`、`docs/testing.md`、`docs/verification-report-2026-08-21.md` 或新的当期验证报告。
+- **Files:** 新增 `tests/journeys/test_first_use.py`、新增 `tests/journeys/test_credential_recovery.py`、`tests/release/test_installer.py`、`tests/release/test_installed_routes.py`、`tests/e2e/test_offline_routes.py`、`docs/guides/testing.md`、`docs/reviews/verification-report-2026-08-21.md` 或新的当期验证报告。
 - **Architecture posture:** extend现有分层测试；新增 journey harness 只编排公开入口，不 direct import 领域 owner 或手写私有状态。
 - **Behavior:** 测试层级分为 deterministic fixture、isolated host、真实 Provider/OCR、真实 Office/PowerPoint 和人工任务；每层独立结论，非补偿式 promotion。
 - **Test scenarios:** macOS/Windows × system/private Python × standalone/Plugin × zero-key/OpenAI/OpenAI-compatible/Atlas × 四 route；显式同意 smoke、默认回车/取消/超时跳过 smoke、lazy success、lazy provider failure、多页 single-flight、generate receipt 不覆盖 edit/mask/reference、业务图片成功但 receipt 写失败、幂等 Provider 重试、非幂等 Provider 结果未知不重试、receipt 恢复不调用 Provider；重复安装、重复副本、网络抖动、限流、凭据撤销、OS store 锁定、磁盘满、进程中断、长路径、空格/中文路径、代理、升级失败、日志泄露、宿主 capability unknown、人工拒绝样张。

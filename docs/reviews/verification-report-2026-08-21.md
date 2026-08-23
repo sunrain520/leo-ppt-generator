@@ -13,7 +13,7 @@ provider 与 PowerPoint 桌面两项 required field proof 因当前环境缺少�
 - 当前 macOS 用户级 Runtime identity：`e64441b2b4516a3cdaf46f2daf14f3ee`；升级后
   再次 `ensure` 返回 `outcome=reused`。PowerShell 控制流只在 macOS `pwsh` 验证，
   不与 Windows 真机证据合并。
-- 上游 commit/tree/license/clean archive：见 `docs/u0-report.md` 与
+- 上游 commit/tree/license/clean archive：见 `docs/reviews/u0-report.md` 与
   `skills/leo-ppt-generator/upstreams.yaml`。
 - Vendor/patch/lock：`sync_upstreams.py --check` 返回 `status=passed`、46 files。
 

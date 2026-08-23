@@ -2,9 +2,9 @@
 
 ## 1. 安装
 
-Leo PPT Generator 面向 macOS arm64/x86_64 与 Windows 10/11 x64；不需要管理员权限，也不要求预装 Python。请选择 **一种** 安装方式，不要同时安装重复副本，也不要同时保留 Plugin 与 standalone Skill。各平台与宿主的现场验证边界见[兼容性说明](docs/compatibility.md)。
+Leo PPT Generator 面向 macOS arm64/x86_64 与 Windows 10/11 x64；不需要管理员权限，也不要求预装 Python。请选择 **一种** 安装方式，不要同时安装重复副本，也不要同时保留 Plugin 与 standalone Skill。各平台与宿主的现场验证边界见[兼容性说明](docs/guides/compatibility.md)。
 
-远程命令以已公开的仓库和 release tag 为准；任一 URL 返回 404 时停止重试，按[故障处理](docs/troubleshooting.md)确认发布状态与唯一恢复动作。
+远程命令以已公开的仓库和 release tag 为准；任一 URL 返回 404 时停止重试，按[故障处理](docs/guides/troubleshooting.md)确认发布状态与唯一恢复动作。
 
 ### 方式 A：Codex Plugin（推荐）
 
@@ -38,7 +38,7 @@ Windows PowerShell：
 irm https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.ps1 | iex
 ```
 
-安装器会解析兼容解释器或创建私有 Python 3.12 runtime，完成本地 route 检查后再原子激活。macOS standalone 安装还会在 `~/.local/bin` 创建稳定的 `leo-ppt` 用户命令，使 `leo-ppt config` 在 runtime 升级后仍自动指向当前版本；安装器不会改写系统 Python 或系统 PATH，若该目录不在 PATH 会给出明确提示。安装器不会读取 API Key。固定版本、通用 Agent 目录、升级和卸载见[用户教程](docs/user-guide.md)。
+安装器会解析兼容解释器或创建私有 Python 3.12 runtime，完成本地 route 检查后再原子激活。macOS standalone 安装还会在 `~/.local/bin` 创建稳定的 `leo-ppt` 用户命令，使 `leo-ppt config` 在 runtime 升级后仍自动指向当前版本；安装器不会改写系统 Python 或系统 PATH，若该目录不在 PATH 会给出明确提示。安装器不会读取 API Key。固定版本、通用 Agent 目录、升级和卸载见[用户教程](docs/guides/user-guide.md)。
 
 **安装成功不等于图片服务已经就绪。** 安装或更新后的本地检查会把状态分开说明：
 
@@ -68,7 +68,7 @@ leo-ppt config status --route generate
 
 Agent 会自动完成 runtime 初始化、能力检查、流程选择和恢复判断。普通用户不需要运行初始化命令、不需要编辑配置文件，也不需要手写 backend JSON。
 
-标准流程是：提交材料和受众目标 → 确认大纲与完整逐页内容 → 确认视觉方向和图片能力 → 批准一页样张 → 生成整套 → 逐页检查并交付 PPTX。切换图片服务、模型或主要风格后必须重新确认样张。
+标准流程是：提交材料和受众目标 → 确认大纲与完整逐页内容 → 确认视觉方向和图片能力 → 批准一页样张 → 生成整套 → 逐页检查并交付 PPTX。切换图片服务、模型或主要风格后必须重新确认样张。视觉方向上，Agent 会从内置与参考风格库（139 种整页风格 + 117 份模板规范，含视觉风格/论证模式/版式/图片渲染/品牌身份等轴）中推荐，选定后经确定性注入进入生成流程。
 
 图片能力按当前现场状态决定：
 
@@ -127,12 +127,12 @@ Agent 会自动完成 runtime 初始化、能力检查、流程选择和恢复�
 
 ## 5. 帮助
 
-- [完整用户教程](docs/user-guide.md)
-- [端到端逻辑流程](docs/skill-workflow.md)
-- [故障处理](docs/troubleshooting.md)
-- [兼容性](docs/compatibility.md)
-- [已知限制](docs/limitations.md)
-- [测试方案与证据分层](docs/testing.md)
+- [完整用户教程](docs/guides/user-guide.md)
+- [端到端逻辑流程](docs/skills/skill-workflow.md)
+- [故障处理](docs/guides/troubleshooting.md)
+- [兼容性](docs/guides/compatibility.md)
+- [已知限制](docs/guides/limitations.md)
+- [测试方案与证据分层](docs/guides/testing.md)
 
 ## 许可证
 

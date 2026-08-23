@@ -149,7 +149,7 @@ supersedes: 2026-08-20-002-feature-ppt-orchestration-skill-plan.md
 ### Key Technical Decisions
 
 - KTD1. 采用 `compose / thin-glue`：两个上游继续拥有算法、页面状态和领域验证；顶层只拥有意图确认、有限 route、合同翻译、失败传播和证据聚合。
-- KTD2. U0 是实施 gate 而不是第三种 readiness；计划当前可执行，但 U1–U5 必须等待 `docs/u0-report.md` 的 `decision: go`。
+- KTD2. U0 是实施 gate 而不是第三种 readiness；计划当前可执行，但 U1–U5 必须等待 `docs/reviews/u0-report.md` 的 `decision: go`。
 - KTD3. MVP 使用四条 code-owned 有限 route，不建设通用 DAG、动态 capability registry 或 runtime scheduler。
 - KTD4. Worker capability 是当前会话事实；CLI 只声明任务需求，顶层 Skill 根据授权、live host capability、容量和实际 outcome 决定派发或 blocked。
 - KTD5. runtime 不读取宿主私有认证文件，也不向 worker 传递完整环境；凭据只由宿主管理或经 provider allowlist 引用。
@@ -1112,7 +1112,7 @@ Backend API 限流策略：
 6. 构建并安装 Skill bundle 内 runtime，证明 prompts/references/package data 可定位。
 7. 记录必须修改的文件、原因和对应回归测试。
 
-U0 是本计划唯一允许立即启动的实施单元。只有 `docs/u0-report.md` 记录 `decision: go`，且上游身份、许可证、依赖、资源定位、最小 fixture、Office 无网络边界和 worker 执行边界全部达到通过标准后，U1–U5 才能启动。`decision: no-go` 时停止本计划并返回 `spec-plan` 修订 vendoring、package、输入支持或 worker 边界，不得在实现中临时扩建平台能力。
+U0 是本计划唯一允许立即启动的实施单元。只有 `docs/reviews/u0-report.md` 记录 `decision: go`，且上游身份、许可证、依赖、资源定位、最小 fixture、Office 无网络边界和 worker 执行边界全部达到通过标准后，U1–U5 才能启动。`decision: no-go` 时停止本计划并返回 `spec-plan` 修订 vendoring、package、输入支持或 worker 边界，不得在实现中临时扩建平台能力。
 
 ##### 9.1.1 U0 量化通过标准
 
@@ -1142,7 +1142,7 @@ U0 失败时不引入平台控制面；应先调整 vendoring/package 边界或�
 
 ##### 9.1.2 U0 交付物
 
-- `docs/u0-report.md`：量化指标实测值、定性边界检查结果、go/no-go 结论。
+- `docs/reviews/u0-report.md`：量化指标实测值、定性边界检查结果、go/no-go 结论。
 - `skills/leo-ppt-generator/upstreams.yaml`：初始版本，记录固定 commit 和 tree hash。
 - `skills/leo-ppt-generator/patches/`：必要的最小 patch 文件。
 - `tests/upstream/`：adapter 后仍能通过的上游核心测试清单。
@@ -1329,7 +1329,7 @@ leo-ppt run cancel <run> --wait-workers
 
 **覆盖：** R6、R7、R8。
 
-**文件：** `docs/u0-report.md`、`skills/leo-ppt-generator/upstreams.yaml`、`skills/leo-ppt-generator/vendor-lock.json`、`skills/leo-ppt-generator/patches/`、`tests/upstream/`、`tests/integration/u0_isolation.py`。
+**文件：** `docs/reviews/u0-report.md`、`skills/leo-ppt-generator/upstreams.yaml`、`skills/leo-ppt-generator/vendor-lock.json`、`skills/leo-ppt-generator/patches/`、`tests/upstream/`、`tests/integration/u0_isolation.py`。
 
 **依赖：** 无；这是唯一允许立即启动的单元。
 
@@ -1487,7 +1487,7 @@ leo-ppt run cancel <run> --wait-workers
 
 **覆盖：** R9、R11、R15、R19。
 
-**文件：** `skills/leo-ppt-generator/scripts/runtime_manager.py`、`skills/leo-ppt-generator/runtime/src/leo_ppt_generator/config/runtime_config.py`、`skills/leo-ppt-generator/runtime/src/leo_ppt_generator/cli.py`、`skills/leo-ppt-generator/runtime/src/leo_ppt_generator/lifecycle.py`、`docs/user-guide.md`、`tests/integration/test_runtime_manager.py`、`tests/unit/test_runtime_config.py`。
+**文件：** `skills/leo-ppt-generator/scripts/runtime_manager.py`、`skills/leo-ppt-generator/runtime/src/leo_ppt_generator/config/runtime_config.py`、`skills/leo-ppt-generator/runtime/src/leo_ppt_generator/cli.py`、`skills/leo-ppt-generator/runtime/src/leo_ppt_generator/lifecycle.py`、`docs/guides/user-guide.md`、`tests/integration/test_runtime_manager.py`、`tests/unit/test_runtime_config.py`。
 
 **依赖：** U3、U6。
 
@@ -1535,7 +1535,7 @@ leo-ppt run cancel <run> --wait-workers
 
 **覆盖：** R6、R7、R18。
 
-**文件：** `skills/leo-ppt-generator/upstream-capabilities.yaml`、`tests/upstream/test_feature_inventory.py`、`tests/upstream/core-tests.yaml`、`tests/skill-evals/cases.yaml`、`tests/skill-evals/test_skill_contract.py`、`docs/upstream-feature-integration-audit-2026-08-21.md`。
+**文件：** `skills/leo-ppt-generator/upstream-capabilities.yaml`、`tests/upstream/test_feature_inventory.py`、`tests/upstream/core-tests.yaml`、`tests/skill-evals/cases.yaml`、`tests/skill-evals/test_skill_contract.py`、`docs/audits/upstream-feature-integration-audit-2026-08-21.md`。
 
 **依赖：** U2–U6。
 
@@ -1551,7 +1551,7 @@ leo-ppt run cancel <run> --wait-workers
 
 **覆盖：** R9–R11、R16、R17、R20。
 
-**文件：** `LICENSE`、`README.md`、`docs/user-guide.md`、`docs/testing.md`、`docs/compatibility.md`、`docs/limitations.md`、`skills/leo-ppt-generator/LICENSE`、`skills/leo-ppt-generator/runtime/pyproject.toml`、`tests/release/test_release_docs.py`。
+**文件：** `LICENSE`、`README.md`、`docs/guides/user-guide.md`、`docs/guides/testing.md`、`docs/guides/compatibility.md`、`docs/guides/limitations.md`、`skills/leo-ppt-generator/LICENSE`、`skills/leo-ppt-generator/runtime/pyproject.toml`、`tests/release/test_release_docs.py`。
 
 **依赖：** U6–U10。
 
@@ -1567,7 +1567,7 @@ leo-ppt run cancel <run> --wait-workers
 
 **覆盖：** R1–R20。
 
-**文件：** `docs/optimization-rounds-2026-08-21.md`、`docs/testing.md`、`docs/verification-report-2026-08-21.md`、`tests/`、最终 Skill bundle 与 Wheel inventory。
+**文件：** `docs/reviews/optimization-rounds-2026-08-21.md`、`docs/guides/testing.md`、`docs/reviews/verification-report-2026-08-21.md`、`tests/`、最终 Skill bundle 与 Wheel inventory。
 
 **依赖：** U6–U11。
 
@@ -1588,7 +1588,7 @@ leo-ppt run cancel <run> --wait-workers
 
 | Proof intent | 状态 | 权威证据 | Claim ceiling |
 | --- | --- | --- | --- |
-| U0 来源、依赖和边界可行性 | required | `docs/u0-report.md` + clean export/fixture receipts | 只决定 go/no-go，不证明三条产品路径完成 |
+| U0 来源、依赖和边界可行性 | required | `docs/reviews/u0-report.md` + clean export/fixture receipts | 只决定 go/no-go，不证明三条产品路径完成 |
 | 安装与 bundle 自包含 | required | 隔离 Skill 安装、任意 cwd、引用解析和四 route doctor receipts | 证明当前平台安装机制，不证明所有宿主平台 |
 | 四条 route 机制正确 | required | source-bound unit/integration/e2e results | 证明受控输入机制，不证明所有视觉质量 |
 | 两个上游逐项能力 | required | 每条 capability 的可执行 `proof_case` + 最终 collection result | 证明登记能力可达，不证明外部 provider 现场效果 |
@@ -1895,7 +1895,7 @@ timeouts:
 
 ## Definition of Done
 
-- U0 的 `docs/u0-report.md` 为 `decision: go`；若为 no-go，本计划正确终止并返回修订，不得把 U1–U5 的未执行状态解释为完成失败。
+- U0 的 `docs/reviews/u0-report.md` 为 `decision: go`；若为 no-go，本计划正确终止并返回修订，不得把 U1–U5 的未执行状态解释为完成失败。
 - 仓库和发布包中只有一个用户可发现的 `leo-ppt-generator` Skill。
 - 用户只安装当前 Skill；两个旧 Skill 和旧 CLI 不存在时，主流程仍可运行。
 - Skill 可按当前官方用户级发现位置或内置 `skill-installer` 安装；文档准确说明两者的实际目标目录、来源 ref 和重新发现条件。

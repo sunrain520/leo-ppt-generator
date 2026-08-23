@@ -8,7 +8,7 @@ date: 2026-08-21
 title: Leo PPT Generator Release Hardening and Review Closure Plan
 topic: release-hardening-and-review-closure
 type: fix
-origin: docs/three-round-skill-product-review-2026-08-21.md
+origin: docs/reviews/three-round-skill-product-review-2026-08-21.md
 extends: docs/plans/2026-08-20-003-feature-top-level-ppt-workflow-skill-plan.md
 ---
 
@@ -178,7 +178,7 @@ flowchart TB
 ### Evidence and Limitations
 
 - 当前源码身份为 `2230fa83bf358a64386d21b97765c5421d4537df`，工作树存在大量已修改和未跟踪文件；执行时必须保留用户现有改动，不能用 reset/checkout 清理。
-- CodeGraph 当前索引混入 `.agents` 且未覆盖未提交 Skill 主体，只用于发现索引 freshness 风险；本计划的关键判断以 `docs/three-round-skill-product-review-2026-08-21.md`、当前 `skills/leo-ppt-generator/runtime/src/` 和 `tests/` 为依据。
+- CodeGraph 当前索引混入 `.agents` 且未覆盖未提交 Skill 主体，只用于发现索引 freshness 风险；本计划的关键判断以 `docs/reviews/three-round-skill-product-review-2026-08-21.md`、当前 `skills/leo-ppt-generator/runtime/src/` 和 `tests/` 为依据。
 - 真实 provider、在线 OCR、PowerPoint 桌面、人工逐页验收和远端发布在当前计划阶段无新证据，不能计入 implementation-ready 的本地执行完成度。
 - `skills/leo-ppt-generator/third_party/` 必须持续不存在；所有修改发生在项目-owned source、vendor durability patch、tests 和 docs 内。
 
@@ -253,7 +253,7 @@ flowchart TB
 ### U9. Documentation and finding-by-finding closure
 
 - **Goal:** 让 README、用户教程、限制、兼容、测试和审查状态与最终行为同源。
-- **Files:** `README.md`、`docs/user-guide.md`、`docs/testing.md`、`docs/compatibility.md`、`docs/limitations.md`、`SKILL.md`、工作流 references、`docs/three-round-skill-product-review-2026-08-21.md`、`tests/release/test_release_docs.py`。
+- **Files:** `README.md`、`docs/guides/user-guide.md`、`docs/guides/testing.md`、`docs/guides/compatibility.md`、`docs/guides/limitations.md`、`SKILL.md`、工作流 references、`docs/reviews/three-round-skill-product-review-2026-08-21.md`、`tests/release/test_release_docs.py`。
 - **Behavior:** 每个 finding 增加状态、关闭证据和剩余外部 gate；只有对应测试/receipt 通过后改为 `已完成`；文档命令全部从 clean install 复演。
 - **Test scenarios:** 链接/命令/支持矩阵/route/claim 自动核对；禁止短语、`third_party/`、第二个 SKILL、Skill README、许可证 drift 回归。
 - **Done evidence:** 18 项逐条状态均与可执行证据一致；外部项保持待定，不以汇总数字替代。

@@ -67,7 +67,7 @@
 
 证据：
 
-- `README.md:26-32` 和 `docs/user-guide.md:9-15` 指示从 GitHub 安装 `skills/leo-ppt-generator`。
+- `README.md:26-32` 和 `docs/guides/user-guide.md:9-15` 指示从 GitHub 安装 `skills/leo-ppt-generator`。
 - `origin/main@2230fa8` 只有 5 个旧文件，不含 README 和 Skill 目录。
 
 影响：外部用户按正式指引无法获得 Skill，本地所有测试不能形成远端发布证据。
@@ -337,7 +337,7 @@ domain state 一致。新增 `evidence accept`，绑定最终 PPTX hash、review
 和连续逐页 accepted 决策。receipt 原子写、冲突拒绝、幂等 replay，并过滤疑似 secret。
 
 证据：`tests/unit/test_evidence.py` 覆盖 provenance identity、秘密过滤、幂等、PPTX
-漂移、逐页视觉与人工拒绝；`docs/user-guide.md` 和 `docs/testing.md` 已提供命令、字段和
+漂移、逐页视觉与人工拒绝；`docs/guides/user-guide.md` 和 `docs/guides/testing.md` 已提供命令、字段和
 证据上限。真实 provider/PowerPoint receipt 仍属于每次现场运行证据，不由 fixture 代替。
 
 ### P2-08：品牌视觉近似与 PowerPoint 模板语义未区分
@@ -346,7 +346,7 @@ domain state 一致。新增 `evidence accept`，绑定最终 PPTX hash、review
 
 双向钢人论证：支持原判断的一方认为，把视觉近似说成模板保留会误导品牌用户，尤其会影响后续新建页、主题色和母版继承；反对一方最强的论点是，完整 OOXML 模板语义兼容成本高，且多数图片/PDF 输入根本没有可继承模板。真正分歧在于产品承诺边界；关键变量是输入是否为可信 PPTX、用户是否明确要求继承语义。当前将两者拆成不同能力：视觉重建/对象可编辑可交付，主题/母版/版式继承明确不支持。
 
-状态：**已完成（声明边界与文档 gate 证据）**。`docs/limitations.md` 已明确固定基础 theme/master、视觉对象重建与模板语义不支持；交付文案不得把 logo/色值/字体近似描述为主题或母版保留。该项通过文档一致性审查完成，未对不具备证据的模板保留能力作扩张承诺。
+状态：**已完成（声明边界与文档 gate 证据）**。`docs/guides/limitations.md` 已明确固定基础 theme/master、视觉对象重建与模板语义不支持；交付文案不得把 logo/色值/字体近似描述为主题或母版保留。该项通过文档一致性审查完成，未对不具备证据的模板保留能力作扩张承诺。
 
 ## 6. 四条真实用户旅程
 

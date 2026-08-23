@@ -109,7 +109,7 @@ flowchart TB
 
 - CodeGraph 与 `graphify-out/` 仅用于定位 `upstream_bridge.py`、两个 adapter、`run_index.py`、hybrid assembler 和测试关系；重要结论回到逐文件源码、测试、日志和 PPTX 产物。
 - 当前观察到的上游 HEAD 与既有账本固定 commit 一致，但执行审查时仍需重新记录 commit、dirty 状态和文件哈希。
-- `docs/upstream-feature-integration-audit-2026-08-21.md` 已声明 43 个上游 Python 文件和 58 项能力均有映射；该声明是审查输入，不是完成证据。
+- `docs/audits/upstream-feature-integration-audit-2026-08-21.md` 已声明 43 个上游 Python 文件和 58 项能力均有映射；该声明是审查输入，不是完成证据。
 - 当前工作树已有大量修改和未跟踪文件。审查执行不得归因、覆盖或清理这些变更，报告必须记录证据来自该 dirty snapshot。
 
 ## Implementation Units
@@ -171,7 +171,7 @@ flowchart TB
 ### U7. 独立裁决与最终报告
 
 - **Goal:** 给出逐项可追溯、不会超过证据上限的完整性判断。
-- **Files:** U1-U6 全部 evidence、`docs/upstream-feature-integration-audit-2026-08-21.md`、`docs/verification-report-2026-08-21.md`。
+- **Files:** U1-U6 全部 evidence、`docs/audits/upstream-feature-integration-audit-2026-08-21.md`、`docs/reviews/verification-report-2026-08-21.md`。
 - **Method:** 对每项能力应用五个非补偿门禁并给出六态判定；先报告缺陷，再给总体结论、边界、最强反方、修复 owner 和复验要求。
 - **Test Scenarios:** 任一关键门禁失败时总体不得为完整；intentional exclusion 必须有产品边界；not-run 现场项不得被 fixture 补偿；零问题时仍报告残余风险。
 - **Output:** `docs/audits/upstream-capability-integration-review-2026-08-21.md`。
@@ -186,7 +186,7 @@ flowchart TB
 | V3 能力基线 | 每项绑定上游 contract/source/test anchor | 零无依据能力；成功与失败条件明确 | 上游能力集合 |
 | V4 映射门禁 | source、reachability、semantic parity、direct proof、integration proof 五项分别判断 | 关键能力五项全过；非关键排除有边界 | 当前集成完整性 |
 | V5 单项 proof | 先 `pytest --collect-only`，再按独立基线逐项执行 node id | 每项有退出状态和 evidence；不以聚合结果替代 | 确定性行为 |
-| V6 聚合回归 | 使用 `docs/testing.md` 的标准 pytest、sync check、skill validation 和 build 命令 | 全部 required gate exit 0，既有失败单列 | 当前 snapshot 回归 |
+| V6 聚合回归 | 使用 `docs/guides/testing.md` 的标准 pytest、sync check、skill validation 和 build 命令 | 全部 required gate exit 0，既有失败单列 | 当前 snapshot 回归 |
 | V7 clean install | 临时隔离环境安装 wheel，通过绝对 CLI 执行四 route | 不依赖源码导入、旧 CLI 或 ambient PATH | 安装后离线闭环 |
 | V8 PPTX 分层 | OOXML、render、PowerPoint、人工编辑分别生成 receipt | 各维度独立判定；缺失为 `not-run` | 对应层级质量 |
 

@@ -755,7 +755,7 @@ def test_single_flight_per_scope(...): ...
 
 宿主 journey 覆盖 Codex、Claude、Kiro 三种 capability 声明：host available 零 key；host unavailable + External unverified 进入首图；blocked 时只给终端命令；用户回复配置完成后重新查询并恢复同任务。Agent tool transcript 做 canary 扫描，确保不读取或转发 secret。
 
-release test 比较 `README.md`、`docs/user-guide.md`、`docs/troubleshooting.md`、`skills/leo-ppt-generator/SKILL.md`、CLI help 与 Reason catalog：入口统一、状态术语一致、所有用户可修复 Reason_Code 有唯一动作、官方 Provider 链接和费用提示存在。生成投影目录不作为测试更新目标。
+release test 比较 `README.md`、`docs/guides/user-guide.md`、`docs/guides/troubleshooting.md`、`skills/leo-ppt-generator/SKILL.md`、CLI help 与 Reason catalog：入口统一、状态术语一致、所有用户可修复 Reason_Code 有唯一动作、官方 Provider 链接和费用提示存在。生成投影目录不作为测试更新目标。
 
 ### Validation gates
 

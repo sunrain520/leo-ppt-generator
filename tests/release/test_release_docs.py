@@ -33,7 +33,7 @@ def test_project_uses_mit_and_preserves_both_upstream_licenses():
 
 def test_readme_and_user_guide_cover_install_config_routes_recovery_and_validation():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    guide = (ROOT / "docs/user-guide.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     for anchor in (
         "codex plugin marketplace add",
         "codex plugin add leo-ppt-generator@leo-ppt-generator",
@@ -50,8 +50,8 @@ def test_readme_and_user_guide_cover_install_config_routes_recovery_and_validati
         "PaddleOCR",
         "Keychain",
         "DPAPI",
-        "docs/user-guide.md",
-        "docs/troubleshooting.md",
+        "docs/guides/user-guide.md",
+        "docs/guides/troubleshooting.md",
         "MIT License",
     ):
         assert anchor in readme
@@ -89,7 +89,7 @@ def test_readme_and_user_guide_cover_install_config_routes_recovery_and_validati
 
 def test_install_docs_distinguish_both_discovery_mechanisms_and_restart_condition():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    guide = (ROOT / "docs/user-guide.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     for document in (readme, guide):
         assert "codex plugin marketplace add" in document
         assert "skill-installer" in document
@@ -119,7 +119,7 @@ def test_public_installer_exists_and_documents_version_pinning():
     assert "codeload.github.com/sunrain520/leo-ppt-generator" in windows_body
     assert "[string]$Ref" in windows_body
 
-    guide = (ROOT / "docs/user-guide.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     assert "--ref <commit-or-tag>" in guide
     assert "-Ref <commit-or-tag>" in guide
     assert "固定版本" in guide
@@ -127,7 +127,7 @@ def test_public_installer_exists_and_documents_version_pinning():
 
 
 def test_user_guide_covers_non_destructive_upgrade_uninstall_and_privacy():
-    guide = (ROOT / "docs/user-guide.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     for anchor in (
         "先移出发现目录",
         "runtime_manager.py\" remove",
@@ -141,7 +141,7 @@ def test_user_guide_covers_non_destructive_upgrade_uninstall_and_privacy():
 
 
 def test_documented_config_and_backend_examples_match_v1_contracts():
-    guide = (ROOT / "docs/user-guide.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     config_block = guide.split("```yaml\n", 1)[1].split("```", 1)[0]
     config = yaml.safe_load(config_block)
     assert config["schema_version"] == 1
@@ -187,7 +187,7 @@ def test_public_document_local_links_resolve_and_platform_examples_are_paired():
                 continue
             assert (document.parent / clean).resolve().exists(), (document, target)
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    guide = (ROOT / "docs/user-guide.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     for document in (readme, guide):
         assert "macOS" in document
         assert "Windows" in document
@@ -301,9 +301,9 @@ def test_documented_public_commands_exist_in_current_cli_help():
 def test_six_reader_roles_can_find_their_single_task_path():
     documents = {
         "readme": (ROOT / "README.md").read_text(encoding="utf-8"),
-        "guide": (ROOT / "docs/user-guide.md").read_text(encoding="utf-8"),
-        "troubleshooting": (ROOT / "docs/troubleshooting.md").read_text(encoding="utf-8"),
-        "testing": (ROOT / "docs/testing.md").read_text(encoding="utf-8"),
+        "guide": (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8"),
+        "troubleshooting": (ROOT / "docs/guides/troubleshooting.md").read_text(encoding="utf-8"),
+        "testing": (ROOT / "docs/guides/testing.md").read_text(encoding="utf-8"),
     }
     role_tasks = {
         "首次用户": ("readme", ("方式 A：Codex Plugin", "第一次生成 PPT")),
@@ -318,7 +318,7 @@ def test_six_reader_roles_can_find_their_single_task_path():
 
 
 def test_testing_plan_covers_murphy_failure_domains_and_false_green_boundaries():
-    body = (ROOT / "docs/testing.md").read_text(encoding="utf-8")
+    body = (ROOT / "docs/guides/testing.md").read_text(encoding="utf-8")
     for anchor in (
         "## 墨菲定律故障驱动模型",
         "### 发布故障矩阵",

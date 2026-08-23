@@ -40,7 +40,7 @@
 
 ### P1-02 既有审计报告与最终源码数量矛盾
 
-初审时 `docs/upstream-feature-integration-audit-2026-08-21.md` 声称 43 个文件中“41 exact + 2 durability patch”，并在文件表中写 codex 14 exact/1 patch、editable 27 exact/1 patch。
+初审时 `docs/audits/upstream-feature-integration-audit-2026-08-21.md` 声称 43 个文件中“41 exact + 2 durability patch”，并在文件表中写 codex 14 exact/1 patch、editable 27 exact/1 patch。
 
 最终源文件比对结果实际为：
 
@@ -52,7 +52,7 @@
 - **最强反方：** 报告可能绑定的是补丁新增前的早期快照。
 - **反方边界：** 报告没有不可变 source hash 来区分该早期快照，却使用当前同一天的最终性语言；读者会自然把它当作当前结论。
 - **修复状态：** `resolved`。报告已更新为 39 exact + 4 patched，并披露 60 mappings / 42 unique proof cases。
-- **最小修复 owner：** `docs/upstream-feature-integration-audit-2026-08-21.md` producer。
+- **最小修复 owner：** `docs/audits/upstream-feature-integration-audit-2026-08-21.md` producer。
 
 ### P1-03 补丁自动治理只覆盖一半
 
