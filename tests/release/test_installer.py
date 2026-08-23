@@ -392,6 +392,25 @@ def test_failed_upgrade_keeps_existing_skill_untouched(tmp_path: Path):
     assert not _backup_directories(target)
 
 
+def test_failed_upgrade_rolls_back_runtime_current(tmp_path: Path):
+    source = _make_source(tmp_path)
+    target = tmp_path / "install-root" / "leo-ppt-generator"
+    target.mkdir(parents=True)
+    (target / "VERSION").write_text("old", encoding="utf-8")
+
+    result, _, log = _run_installer(
+        tmp_path,
+        source,
+        "--upgrade",
+        fail_route="direct-editable",
+    )
+
+    assert result.returncode != 0
+    assert (target / "VERSION").read_text(encoding="utf-8") == "old"
+    calls = log.read_text(encoding="utf-8").splitlines()
+    assert "rollback" in calls
+
+
 def test_macos_false_green_doctor_output_blocks_activation(tmp_path: Path):
     source = _make_source(tmp_path)
 

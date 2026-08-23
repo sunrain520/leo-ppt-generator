@@ -454,6 +454,14 @@ class RuntimeManager:
             "operation_id": operation_id,
             "switched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
+        previous_bundle_backup = os.environ.get("LEO_PPT_PREVIOUS_BUNDLE_BACKUP")
+        if previous_bundle_backup:
+            candidate_backup = Path(previous_bundle_backup).expanduser().resolve()
+            if candidate_backup != metadata_bundle_root:
+                value["previous_bundle_backup"] = str(candidate_backup)
+        install_channel = os.environ.get("LEO_PPT_INSTALL_CHANNEL")
+        if install_channel:
+            value["install_channel"] = install_channel
         atomic_write_json(self.current_path, value)
         return value
 
@@ -807,17 +815,45 @@ class RuntimeManager:
             "primary_action": report.get("primary_action"),
         }
 
+    def _restore_previous_bundle(self, backup: Path, operation_id: str) -> Path | None:
+        """把当前 bundle 回退到记录的上一个 bundle 备份，返回被挪走的当前 bundle 备份路径。"""
+        backup = Path(backup).expanduser().resolve()
+        if not backup.is_dir() or backup == self.bundle_root:
+            return None
+        backup_root = self.bundle_root.parent / f".{self.bundle_root.name}-backups"
+        backup_root.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        displaced = backup_root / f"{stamp}-rollback-{operation_id}"
+        counter = 0
+        while displaced.exists():
+            counter += 1
+            displaced = displaced.with_name(f"{displaced.name}.{counter}")
+        os.replace(self.bundle_root, displaced)
+        try:
+            os.replace(backup, self.bundle_root)
+        except OSError as error:
+            os.replace(displaced, self.bundle_root)
+            raise RuntimeInstallError(f"bundle_rollback_failed: {error}") from error
+        fsync_directory(self.bundle_root.parent)
+        return displaced
+
     def rollback(
         self, identity: str | None = None, operation_id: str | None = None
     ) -> dict[str, Any]:
         operation_id = operation_id or uuid.uuid4().hex
         with InstallLock(self.lock_path):
+            snapshot = self.current()
             if identity is None:
-                current = self.current()
-                candidate = current.get("previous_runtime_identity")
+                candidate = snapshot.get("previous_runtime_identity")
                 if not isinstance(candidate, str):
                     raise RuntimeIncompatibleError("没有可回滚的上一健康 runtime")
                 identity = candidate
+            previous_bundle_backup = snapshot.get("previous_bundle_backup")
+            restored_backup = None
+            if isinstance(previous_bundle_backup, str):
+                restored_backup = self._restore_previous_bundle(
+                    Path(previous_bundle_backup), operation_id
+                )
             current = self._switch_current(identity, operation_id)
             return {
                 "protocol": "leo-ppt-update/v1",
@@ -826,6 +862,10 @@ class RuntimeManager:
                 "reason_code": "runtime_rolled_back",
                 "operation_id": operation_id,
                 "outcome": "rolled_back",
+                "bundle_restored": restored_backup is not None,
+                "displaced_bundle_backup": (
+                    str(restored_backup) if restored_backup is not None else None
+                ),
                 **current,
             }
 

@@ -109,7 +109,15 @@ target="$target_parent/$SKILL_NAME"
 
 codex_root="${CODEX_HOME:-$HOME/.codex}/skills"
 agents_root="$HOME/.agents/skills"
-for discovery_root in "$codex_root" "$agents_root"; do
+discovery_roots=("$codex_root" "$agents_root")
+if [[ -n "${LEO_PPT_EXTRA_DISCOVERY_ROOTS:-}" ]]; then
+  IFS=':' read -r -a extra_roots <<< "$LEO_PPT_EXTRA_DISCOVERY_ROOTS"
+  for extra_root in "${extra_roots[@]}"; do
+    [[ -n "$extra_root" ]] || continue
+    discovery_roots+=("$extra_root")
+  done
+fi
+for discovery_root in "${discovery_roots[@]}"; do
   discovered="$discovery_root/$SKILL_NAME"
   if [[ "$discovered" != "$target" && -f "$discovered/SKILL.md" ]]; then
     fail "检测到另一个活动 Skill：${discovered}；请只保留目标 ${target} 后重试"
@@ -126,9 +134,16 @@ launcher_target="$target/scripts/leo-ppt"
 launcher_stage=""
 launcher_created=0
 launcher_committed=0
+runtime_switched=0
 install_lock="$target_parent/.$SKILL_NAME.install.lock"
 lock_acquired=0
 cleanup() {
+  # 若 bootstrap 已把受管 runtime 的 current 切到新 identity，但 bundle 最终未激活，
+  # 则必须把 current 回滚到上一健康 runtime，避免出现“旧 bundle + 新 runtime”的分裂态。
+  if [[ "${runtime_switched:-0}" == "1" && "${launcher_committed:-0}" != "1" && \
+        -n "${candidate:-}" && -x "${candidate}/scripts/leo-bootstrap.sh" ]]; then
+    LEO_PPT_INSTALL_TARGET="${target:-}" "${candidate}/scripts/leo-bootstrap.sh" rollback >/dev/null 2>&1 || true
+  fi
   if [[ -n "${launcher_stage:-}" && -L "$launcher_stage" ]]; then
     rm -f -- "$launcher_stage"
   fi
@@ -247,15 +262,30 @@ unsafe_path="$(find "$candidate" \( -type l -o -type d \( \
 chmod 755 "$candidate/scripts/leo-bootstrap.sh" || fail "无法设置 bootstrap launcher 执行权限"
 chmod 755 "$candidate/scripts/leo-ppt" || fail "无法设置 leo-ppt launcher 执行权限"
 
+# 在 bootstrap 之前就确定旧 bundle 的备份路径，随 _switch_current 记录进 current 元数据，
+# 使 rollback 能把 bundle 与 runtime 一起回退到上一个一致版本（而非只回 venv）。
+backup=""
+if [[ -e "$target" ]]; then
+  backup_root="$target_parent/.$SKILL_NAME-backups"
+  mkdir -p "$backup_root"
+  backup="$backup_root/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+fi
+install_channel="standalone"
+if [[ "$agents_mode" == "1" ]]; then
+  install_channel="agent-skill"
+fi
+
 printf 'install[runtime_ensure]: 正在初始化受管 runtime…\n'
 # stdout 保留纯 JSON receipt 供 plutil 解析；stderr（stage 进度事件与失败诊断）
 # 保持实时打到终端，避免冷安装下载私有 runtime 时进度不可见。
 ensure_log="$stage_root/runtime-ensure.log"
-if ! LEO_PPT_INSTALL_TARGET="$target" \
+if ! LEO_PPT_INSTALL_TARGET="$target" LEO_PPT_PREVIOUS_BUNDLE_BACKUP="$backup" \
+  LEO_PPT_INSTALL_CHANNEL="$install_channel" \
   "$candidate/scripts/leo-bootstrap.sh" bootstrap >"$ensure_log"; then
   cat "$ensure_log" >&2
   fail "runtime 初始化失败；现有 Skill 未被替换"
 fi
+runtime_switched=1
 if [[ "$(plutil -extract protocol raw -o - "$ensure_log" 2>/dev/null || true)" != "leo-ppt-bootstrap/v1" || \
       "$(plutil -extract status raw -o - "$ensure_log" 2>/dev/null || true)" != "ready" || \
       -z "$(plutil -extract runtime_identity raw -o - "$ensure_log" 2>/dev/null || true)" || \
@@ -283,7 +313,6 @@ for route in generate direct-editable upgrade-full upgrade-selected; do
   printf 'route %s：本地机制就绪\n' "$route"
 done
 
-backup=""
 if [[ "$launcher_needs_install" == "1" ]]; then
   if ! mv "$launcher_stage" "$launcher_path"; then
     fail "无法激活 leo-ppt launcher：$launcher_path"
@@ -292,9 +321,7 @@ if [[ "$launcher_needs_install" == "1" ]]; then
   launcher_created=1
 fi
 if [[ -e "$target" ]]; then
-  backup_root="$target_parent/.$SKILL_NAME-backups"
-  mkdir -p "$backup_root"
-  backup="$backup_root/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  [[ -n "$backup" ]] || fail "内部错误：未预留旧 bundle 备份目录"
   [[ ! -e "$backup" ]] || fail "备份目录已存在：$backup"
   mv "$target" "$backup"
 fi

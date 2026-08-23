@@ -115,6 +115,7 @@ def _version_report() -> dict[str, Any]:
 
     runtime_identity = None
     bundle_root = None
+    install_channel = None
     try:
         current = json.loads((default_home() / "current").read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
@@ -123,15 +124,18 @@ def _version_report() -> dict[str, Any]:
         runtime_identity = current["runtime_identity"]
     if isinstance(current.get("bundle_root"), str):
         bundle_root = current["bundle_root"]
-    normalized_bundle = str(bundle_root or "").replace("\\", "/")
-    if "/plugins/" in normalized_bundle:
-        install_channel = "plugin"
-    elif "/.agents/skills/" in normalized_bundle:
-        install_channel = "agent-skill"
-    elif bundle_root:
-        install_channel = "standalone"
+    if isinstance(current.get("install_channel"), str):
+        install_channel = current["install_channel"]
     else:
-        install_channel = "unknown"
+        normalized_bundle = str(bundle_root or "").replace("\\", "/")
+        if "/plugins/" in normalized_bundle:
+            install_channel = "plugin"
+        elif "/.agents/skills/" in normalized_bundle:
+            install_channel = "agent-skill"
+        elif bundle_root:
+            install_channel = "standalone"
+        else:
+            install_channel = "unknown"
     return {
         "protocol": "leo-ppt-version/v1",
         "schema_version": 1,

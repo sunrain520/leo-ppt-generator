@@ -399,6 +399,35 @@ class RuntimeManagerTest(unittest.TestCase):
             with self.assertRaises(module.RuntimeInUseError):
                 manager.remove(first["runtime_identity"], root / "runs")
 
+    def test_rollback_restores_previous_bundle(self) -> None:
+        module = load_manager()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            home = root / "home"
+            first = module.RuntimeManager(make_bundle(root, "0.0.1"), home).ensure()
+            second = module.RuntimeManager(make_bundle(root, "0.0.2"), home).ensure()
+            manager = module.RuntimeManager(root / "bundle-0.0.2", home)
+
+            # 模拟 update 时 install.sh 记录的旧 bundle 备份：拷贝 v1 bundle 到独立目录。
+            backup = root / "backups" / "v1"
+            shutil.copytree(root / "bundle-0.0.1", backup)
+            current = module.read_json(manager.current_path)
+            current["previous_bundle_backup"] = str(backup)
+            module.atomic_write_json(manager.current_path, current)
+
+            rolled = manager.rollback(first["runtime_identity"])
+
+            self.assertTrue(rolled["bundle_restored"])
+            self.assertEqual(first["runtime_identity"], rolled["runtime_identity"])
+            v2_pyproject = root / "bundle-0.0.2" / "runtime" / "pyproject.toml"
+            self.assertIn('version = "0.0.1"', v2_pyproject.read_text(encoding="utf-8"))
+            displaced = Path(rolled["displaced_bundle_backup"])
+            self.assertTrue(displaced.is_dir())
+            self.assertIn(
+                'version = "0.0.2"',
+                (displaced / "runtime" / "pyproject.toml").read_text(encoding="utf-8"),
+            )
+
     def test_remove_fails_closed_when_run_or_current_metadata_is_corrupt(self) -> None:
         module = load_manager()
         with tempfile.TemporaryDirectory() as temp:
