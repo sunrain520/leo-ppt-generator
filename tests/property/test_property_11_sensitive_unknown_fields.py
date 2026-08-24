@@ -68,7 +68,7 @@ def sensitive_unknown_field_cases(draw: st.DrawFn) -> tuple[dict[str, Any], str,
         "endpoint_origin": "https://proxy.example.com",
         "model": "gpt-image-2",
         "credential_source": "environment-reference",
-        "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+        "credential_ref": "env:OPENAI_API_KEY",
         "registry_overrides": _nest(override_path, canary),
     }
     document = {

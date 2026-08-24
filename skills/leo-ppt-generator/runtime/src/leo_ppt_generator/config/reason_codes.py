@@ -56,6 +56,10 @@ class ReasonCode(StrEnum):
     DEVELOPMENT_CONFIG_RESET_REQUIRED = "development_config_reset_required"
     UNKNOWN_SENSITIVE_FIELD = "unknown_sensitive_field"
     PROVIDER_SELECTION_REQUIRED = "provider_selection_required"
+    PROVIDER_PRIORITY_TIE = "provider_priority_tie"
+    REQUESTED_PROVIDER_UNAVAILABLE = "requested_provider_unavailable"
+    PROVIDER_PREFERENCE_UPDATED = "provider_preference_updated"
+    BACKEND_SELECTION_INVALID = "backend_selection_invalid"
     PROVIDER_PROFILE_INVALID = "provider_profile_invalid"
     PROVIDER_PROFILE_INVALID_ENDPOINT_ORIGIN = "provider_profile_invalid:endpoint_origin"
     PROVIDER_PROFILE_INVALID_MODEL = "provider_profile_invalid:model"
@@ -170,6 +174,10 @@ _REASON_DEFINITIONS = (
     _definition(ReasonCode.DEVELOPMENT_CONFIG_RESET_REQUIRED, ConfigStage.STATUS, RecoveryCategory.REPAIR, _RUN, _REPAIR),
     _definition(ReasonCode.UNKNOWN_SENSITIVE_FIELD, ConfigStage.STATUS, RecoveryCategory.REPAIR, _RUN, _REPAIR),
     _definition(ReasonCode.PROVIDER_SELECTION_REQUIRED, ConfigStage.PROFILE, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
+    _definition(ReasonCode.PROVIDER_PRIORITY_TIE, ConfigStage.PROFILE, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
+    _definition(ReasonCode.REQUESTED_PROVIDER_UNAVAILABLE, ConfigStage.PROFILE, RecoveryCategory.CONFIGURE, _RUN, _CONFIG),
+    _definition(ReasonCode.PROVIDER_PREFERENCE_UPDATED, ConfigStage.PROFILE, RecoveryCategory.NONE, user_repairable=False),
+    _definition(ReasonCode.BACKEND_SELECTION_INVALID, ConfigStage.PROFILE, RecoveryCategory.NONE, user_repairable=False),
     _definition(ReasonCode.PROVIDER_PROFILE_INVALID, ConfigStage.PROFILE, RecoveryCategory.REPAIR, _RUN, _REPAIR),
     _definition(ReasonCode.PROVIDER_PROFILE_INVALID_ENDPOINT_ORIGIN, ConfigStage.PROFILE, RecoveryCategory.REPAIR, _RUN, _REPAIR),
     _definition(ReasonCode.PROVIDER_PROFILE_INVALID_MODEL, ConfigStage.PROFILE, RecoveryCategory.REPAIR, _RUN, _REPAIR),

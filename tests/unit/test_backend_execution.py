@@ -33,7 +33,7 @@ def test_execution_context_resolves_declared_environment_reference_without_leaki
 def test_execution_context_maps_compatible_contract_to_isolated_openai_environment(
     monkeypatch: pytest.MonkeyPatch, tmp_path, endpoint_origin: str
 ):
-    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "proxy-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "proxy-secret")
     contract_path = tmp_path / "backend-contract.json"
     contract = backend_contract("openai-compatible")
     contract["endpoint_origin"] = endpoint_origin
@@ -44,7 +44,7 @@ def test_execution_context_maps_compatible_contract_to_isolated_openai_environme
     assert context.provider == "openai-compatible"
     assert context.environment["OPENAI_API_KEY"] == "proxy-secret"
     assert context.environment["OPENAI_BASE_URL"] == "https://proxy.example.com/v1"
-    assert context.receipt["credential_ref"] == "env:OPENAI_COMPATIBLE_API_KEY"
+    assert context.receipt["credential_ref"] == "env:OPENAI_API_KEY"
     assert "proxy-secret" not in json.dumps(context.receipt)
 
 

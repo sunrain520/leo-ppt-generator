@@ -63,6 +63,21 @@ _PRIMARY_ACTIONS: dict[str, dict[str, str]] = {
         "command": "leo-ppt config provider configure --provider {provider}",
         "verification": "所选 provider 的凭据状态变为 available 后重新运行 setup。",
     },
+    "provider_priority_tie": {
+        "id": "resolve_provider_priority",
+        "command": "leo-ppt config provider priority --provider <provider> --value <1-1000>",
+        "verification": "重新运行 config status，确认自动选择返回唯一 Provider。",
+    },
+    "provider_selection_required": {
+        "id": "configure_provider_selection",
+        "command": "leo-ppt config",
+        "verification": "重新运行 config status，确认存在可自动选择的 Provider。",
+    },
+    "requested_provider_unavailable": {
+        "id": "configure_requested_provider",
+        "command": "leo-ppt config provider configure --provider <provider>",
+        "verification": "重新运行 setup，确认指定 Provider 满足当前 route。",
+    },
     "unknown_backend": {
         "id": "choose_supported_provider",
         "command": "leo-ppt setup --route {route} --provider <builtin-imagegen|openai|openai-compatible|atlascloud>",

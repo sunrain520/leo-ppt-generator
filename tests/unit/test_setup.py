@@ -333,12 +333,13 @@ def test_setup_schema_version_is_fail_closed():
         setup.validate_setup_report({"schema_version": 2})
 
 
-def test_setup_main_uses_nonzero_exit_for_non_ready_state(monkeypatch, capsys):
+def test_setup_main_uses_nonzero_exit_for_non_ready_state(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(
         setup,
         "doctor_report",
         lambda _route: doctor_fixture(openai="available", atlascloud="available"),
     )
+    monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
 
     exit_code = cli.main(
         ["setup", "--route", "generate", "--host-imagegen", "unavailable"]

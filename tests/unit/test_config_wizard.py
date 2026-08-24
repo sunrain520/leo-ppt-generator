@@ -122,13 +122,13 @@ def test_configured_wizard_shows_current_profile_and_enter_keeps_everything():
                         "endpoint_origin": "https://relay.example.com",
                         "model": "relay-image-v1",
                         "credential_source": "environment-reference",
-                        "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+                        "credential_ref": "env:OPENAI_API_KEY",
                     }
                 },
             },
         )
         credential_store = MemoryStore(
-            {"OPENAI_COMPATIBLE_API_KEY": "environment-secret"}
+            {"OPENAI_API_KEY": "environment-secret"}
         )
         unavailable = CredentialInputSelection(
             channel=CredentialInputChannel.UNAVAILABLE,
@@ -165,7 +165,7 @@ def test_configured_wizard_shows_current_profile_and_enter_keeps_everything():
         ]
         assert confirmations == [
             (
-                "当前凭据：environment-reference env:OPENAI_COMPATIBLE_API_KEY。是否保留？",
+                "当前凭据：environment-reference env:OPENAI_API_KEY。是否保留？",
                 True,
             )
         ]
@@ -196,14 +196,14 @@ def test_configured_wizard_edits_profile_and_preserves_exact_credential_referenc
             },
         )
         credential_store = MemoryStore(
-            {"OPENAI_COMPATIBLE_API_KEY": "environment-must-not-win"}
+            {"OPENAI_API_KEY": "environment-must-not-win"}
         )
         credential_store.values["openai-compatible"] = "stored-secret"
         resolver = FixedResolver(
             CredentialInputSelection(
                 channel=CredentialInputChannel.ENVIRONMENT,
                 reason_code="credential_environment_available",
-                credential_ref="env:OPENAI_COMPATIBLE_API_KEY",
+                credential_ref="env:OPENAI_API_KEY",
             )
         )
         answers = iter(("https://new.example.com", "new-model"))
@@ -225,6 +225,8 @@ def test_configured_wizard_edits_profile_and_preserves_exact_credential_referenc
             "credential_source": "os-store-reference",
             "credential_ref": "keychain:leo-ppt-generator/openai-compatible",
             "credential_generation": 3,
+            "enabled": True,
+            "priority": 100,
         }
         assert resolver.calls == []
         assert credential_store.values["openai-compatible"] == "stored-secret"
@@ -353,6 +355,8 @@ def test_wizard_environment_reference_writes_complete_openai_profile():
             "model": "gpt-image-2",
             "credential_source": "environment-reference",
             "credential_ref": "env:OPENAI_API_KEY",
+            "enabled": True,
+            "priority": 100,
         }
         assert credential_store.values == {}
         assert result.report.status.value == "configured_unverified"
@@ -383,6 +387,8 @@ def test_wizard_tty_secret_writes_store_reference_and_closes_secret():
             "credential_source": "os-store-reference",
             "credential_ref": "keychain:leo-ppt-generator/openai",
             "credential_generation": 1,
+            "enabled": True,
+            "priority": 100,
         }
         assert selection.secret is not None and selection.secret.closed is True
         assert result.report.status.value == "configured_unverified"
@@ -426,6 +432,8 @@ def test_wizard_openai_compatible_collects_origin_model_and_credential():
             "credential_source": "os-store-reference",
             "credential_ref": "keychain:leo-ppt-generator/openai-compatible",
             "credential_generation": 1,
+            "enabled": True,
+            "priority": 100,
         }
         assert credential_store.values == {"openai-compatible": "sk-relay"}
         assert result.report.status.value == "configured_unverified"
@@ -502,13 +510,13 @@ def test_default_terminal_menu_enter_uses_current_provider_and_profile_defaults(
                         "endpoint_origin": "https://relay.example.com",
                         "model": "relay-image-v1",
                         "credential_source": "environment-reference",
-                        "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+                        "credential_ref": "env:OPENAI_API_KEY",
                     }
                 },
             },
         )
         credential_store = MemoryStore(
-            {"OPENAI_COMPATIBLE_API_KEY": "environment-secret"}
+            {"OPENAI_API_KEY": "environment-secret"}
         )
         output = io.StringIO()
         before = config_store.path.read_bytes()

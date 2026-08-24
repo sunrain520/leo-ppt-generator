@@ -25,7 +25,7 @@ SCHEMA_VERSION = 1
 EXTERNAL_PROVIDERS = ("openai", "openai-compatible", "atlascloud")
 ENVIRONMENT_REFERENCES = {
     "openai": "env:OPENAI_API_KEY",
-    "openai-compatible": "env:OPENAI_COMPATIBLE_API_KEY",
+    "openai-compatible": "env:OPENAI_API_KEY",
     "atlascloud": "env:ATLASCLOUD_API_KEY",
 }
 OS_STORE_REFERENCES = {
@@ -205,6 +205,8 @@ def _allowed_keys(pointer: str) -> frozenset[str]:
             "credential_source",
             "credential_ref",
             "credential_generation",
+            "enabled",
+            "priority",
         }
         if provider == "openai-compatible":
             common.add("endpoint_origin")
@@ -322,16 +324,19 @@ def _validate_profile(
     pointer = f"/provider_profiles/{provider}"
     if not isinstance(value, dict):
         raise RuntimeConfigError("provider_profile_invalid", pointer)
-    expected = {
+    required = {
         "model",
         "credential_source",
         "credential_ref",
     }
+    allowed = required | {"enabled", "priority"}
     if value.get("credential_source") == "os-store-reference":
-        expected.add("credential_generation")
+        required.add("credential_generation")
+        allowed.add("credential_generation")
     if provider == "openai-compatible":
-        expected.add("endpoint_origin")
-    if set(value) != expected:
+        required.add("endpoint_origin")
+        allowed.add("endpoint_origin")
+    if not required.issubset(value) or not set(value).issubset(allowed):
         raise RuntimeConfigError("provider_profile_invalid", pointer)
 
     credential, issue = _validate_credential(provider, value, environment)
@@ -340,6 +345,16 @@ def _validate_profile(
         normalized["endpoint_origin"] = validate_endpoint_origin(
             value.get("endpoint_origin")
         )
+    enabled = value.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise RuntimeConfigError("provider_profile_invalid", f"{pointer}/enabled")
+    normalized["enabled"] = enabled
+    normalized["priority"] = _integer(
+        value.get("priority", 100),
+        minimum=1,
+        maximum=1000,
+        pointer=f"{pointer}/priority",
+    )
     normalized.update(credential)
     return normalized, issue
 

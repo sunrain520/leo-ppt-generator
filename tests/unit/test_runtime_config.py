@@ -135,10 +135,10 @@ def test_provider_reference_isolated_and_endpoint_is_origin_only(tmp_path):
         "  openai-compatible:\n    endpoint_origin: https://images.example.com/\n"
         "    model: '  gpt-image-2  '\n"
         "    credential_source: environment-reference\n"
-        "    credential_ref: env:OPENAI_COMPATIBLE_API_KEY\n",
+        "    credential_ref: env:OPENAI_API_KEY\n",
     )
     config = load_runtime_config(
-        home=home, environ={"OPENAI_COMPATIBLE_API_KEY": "present"}
+        home=home, environ={"OPENAI_API_KEY": "present"}
     )
     profile = config.values["provider_profiles"]["openai-compatible"]
     assert profile["endpoint_origin"] == "https://images.example.com"
@@ -147,7 +147,7 @@ def test_provider_reference_isolated_and_endpoint_is_origin_only(tmp_path):
     profile_path = home / "config.yaml"
     profile_path.write_text(
         profile_path.read_text(encoding="utf-8").replace(
-            "env:OPENAI_COMPATIBLE_API_KEY", "env:OPENAI_API_KEY"
+            "env:OPENAI_API_KEY", "env:NOT_ALLOWED_API_KEY"
         ),
         encoding="utf-8",
     )
@@ -169,7 +169,7 @@ def test_openai_compatible_endpoint_rejects_non_origins(tmp_path, endpoint):
     with pytest.raises(RuntimeConfigError, match="provider_profile_invalid"):
         configure_openai_compatible_profile(
             home=tmp_path / "home",
-            environ={"OPENAI_COMPATIBLE_API_KEY": "present"},
+            environ={"OPENAI_API_KEY": "present"},
             endpoint_origin=endpoint,
             model="gpt-image-2",
         )
@@ -189,7 +189,9 @@ def test_config_store_cas_persists_complete_profile_with_private_permissions(tmp
         "model": "gpt-image-2",
         "endpoint_origin": "https://proxy.example.com",
         "credential_source": "environment-reference",
-        "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+        "credential_ref": "env:OPENAI_API_KEY",
+        "enabled": True,
+        "priority": 100,
     }
     assert config.issues[0].reason_code == "credential_environment_missing"
     if runtime_config_module.os.name != "nt":

@@ -144,6 +144,40 @@ def test_status_environment_configured_is_unverified_but_allowed():
         assert report.readiness_scope.missing_capabilities == frozenset({Capability.GENERATE})
 
 
+def test_configuring_a_second_provider_assigns_a_lower_default_priority():
+    from leo_ppt_generator.config.service import ConfigureRequest
+    from leo_ppt_generator.credentials import CredentialInputChannel, CredentialInputSelection
+
+    with tempfile.TemporaryDirectory() as directory:
+        home = Path(directory)
+        service = _service(
+            home,
+            config={
+                "schema_version": 1,
+                "selected_provider": "openai",
+                "provider_profiles": {
+                    "openai": {
+                        "model": "gpt-image-2",
+                        "credential_source": "environment-reference",
+                        "credential_ref": "env:OPENAI_API_KEY",
+                        "priority": 3,
+                    }
+                },
+            },
+            environ={"OPENAI_API_KEY": "sk-a", "ATLASCLOUD_API_KEY": "sk-b"},
+        )
+        selection = CredentialInputSelection(
+            channel=CredentialInputChannel.ENVIRONMENT,
+            reason_code="credential_environment_available",
+            credential_ref="env:ATLASCLOUD_API_KEY",
+        )
+        service.configure(ConfigureRequest(provider="atlascloud", credential=selection))
+
+        profile = ConfigStore(home).read().values["provider_profiles"]["atlascloud"]
+        assert profile["priority"] == 4
+        assert ConfigStore(home).read().values["selected_provider"] == "openai"
+
+
 def test_status_ready_with_valid_receipt():
     with tempfile.TemporaryDirectory() as directory:
         home = Path(directory)

@@ -24,7 +24,7 @@ PROPERTY_SETTINGS = settings(
 PROVIDERS = ("openai", "openai-compatible", "atlascloud")
 ENV_NAMES = {
     "openai": "OPENAI_API_KEY",
-    "openai-compatible": "OPENAI_COMPATIBLE_API_KEY",
+    "openai-compatible": "OPENAI_API_KEY",
     "atlascloud": "ATLASCLOUD_API_KEY",
 }
 

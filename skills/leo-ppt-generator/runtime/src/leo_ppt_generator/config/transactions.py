@@ -239,7 +239,8 @@ class ConfigTransactionCoordinator:
         profiles = dict(candidate.get("provider_profiles", {}))
         profiles[provider_name.value] = dict(profile)
         candidate["provider_profiles"] = profiles
-        candidate["selected_provider"] = provider_name.value
+        if candidate.get("selected_provider") is None:
+            candidate["selected_provider"] = provider_name.value
 
         profile_digest = _digest(profile)
         target_generation = profile.get("credential_generation")

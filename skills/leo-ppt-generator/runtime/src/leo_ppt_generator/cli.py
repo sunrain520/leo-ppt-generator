@@ -25,7 +25,7 @@ from .backend_execution import BackendExecutionError
 from .config.backend_contract import BackendContractError, BackendRegistry
 from .config.provider_registry import ProviderRegistry
 from .config.receipt_store import FileReceiptStore
-from .config.models import ProviderName
+from .config.models import HostCapabilityState, ProviderName, RouteName
 from .config.reason_codes import ReasonCode
 from .config.service import ConfigService, ConfigServiceError, StatusRequest
 from .config.wizard import ConfigWizard, WizardCancelled
@@ -53,6 +53,7 @@ from .observability import (
     command_name,
     record_command,
     resolve_run_dir,
+    primary_action_for,
     utc_now,
     write_delivery_reports,
 )
@@ -1062,6 +1063,22 @@ def build_parser() -> argparse.ArgumentParser:
     provider_select.add_argument("--route")
     provider_select.add_argument("--key-stdin", action="store_true")
     provider_select.add_argument("--json", action="store_true")
+    provider_priority = provider_commands.add_parser("priority")
+    provider_priority.add_argument(
+        "--provider",
+        choices=("openai", "openai-compatible", "atlascloud"),
+        required=True,
+    )
+    provider_priority.add_argument("--value", type=int, required=True)
+    provider_priority.add_argument("--json", action="store_true")
+    provider_enabled = provider_commands.add_parser("enabled")
+    provider_enabled.add_argument(
+        "--provider",
+        choices=("openai", "openai-compatible", "atlascloud"),
+        required=True,
+    )
+    provider_enabled.add_argument("--value", choices=("true", "false"), required=True)
+    provider_enabled.add_argument("--json", action="store_true")
     provider_remove = provider_commands.add_parser("remove")
     provider_remove.add_argument(
         "--provider",
@@ -1111,7 +1128,11 @@ def build_parser() -> argparse.ArgumentParser:
     backend_create.add_argument(
         "--provider",
         choices=("builtin-imagegen", "openai", "openai-compatible", "atlascloud"),
-        required=True,
+    )
+    backend_create.add_argument(
+        "--host-imagegen",
+        choices=("available", "unavailable", "unknown"),
+        default="unknown",
     )
     backend_create.add_argument("--mode", choices=("generate", "edit"), required=True)
     backend_create.add_argument("--model")
@@ -1442,13 +1463,16 @@ def _config_wizard(
 
 
 def _config_provider_list(request: StatusRequest) -> dict[str, Any]:
-    report = _config_service().status(request)
+    service = _config_service()
+    snapshot = service.config_store.read()
+    report = service.status(request)
     by_name = {item.provider.value: item.to_dict() for item in report.providers}
     providers = []
     for definition in ProviderRegistry.default().definitions():
         if definition.name == "builtin-imagegen":
             continue
         current = by_name.get(definition.name, {})
+        profile = snapshot.values.get("provider_profiles", {}).get(definition.name, {})
         providers.append(
             {
                 "provider": definition.name,
@@ -1456,6 +1480,8 @@ def _config_provider_list(request: StatusRequest) -> dict[str, Any]:
                 and report.selected_provider.value == definition.name,
                 "configured": current.get("configuration_state")
                 == "locally_configured",
+                "enabled": profile.get("enabled", False),
+                "priority": profile.get("priority"),
                 "credential_status": (
                     "available"
                     if current.get("credential_reference_type")
@@ -1469,6 +1495,28 @@ def _config_provider_list(request: StatusRequest) -> dict[str, Any]:
             }
         )
     return envelope("ready", "provider_listed", providers=providers)
+
+
+def _update_provider_preference(
+    provider: str, *, field: str, value: Any
+) -> dict[str, Any]:
+    if field == "priority" and (
+        isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 1000
+    ):
+        raise ConfigServiceError("provider_profile_invalid")
+    service = _config_service()
+    snapshot = service.config_store.read()
+    profiles = dict(snapshot.document.get("provider_profiles", {}))
+    profile = profiles.get(provider)
+    if not isinstance(profile, dict):
+        raise ConfigServiceError("provider_profile_invalid")
+    updated = dict(profile)
+    updated[field] = value
+    profiles[provider] = updated
+    candidate = dict(snapshot.document)
+    candidate["provider_profiles"] = profiles
+    service.config_store.compare_and_swap(snapshot.canonical_digest, candidate)
+    return envelope("completed", "provider_preference_updated", provider=provider)
 
 
 def _remove_provider_profile(provider: str) -> dict[str, Any]:
@@ -1517,6 +1565,14 @@ def _dispatch_config_provider(args: argparse.Namespace) -> dict[str, Any]:
                 operation_id=f"config-select-{args.provider}",
             )
         return envelope(report.status.value, report.reason_code, report=report.to_dict())
+    if command == "priority":
+        return _update_provider_preference(
+            args.provider, field="priority", value=args.value
+        )
+    if command == "enabled":
+        return _update_provider_preference(
+            args.provider, field="enabled", value=args.value == "true"
+        )
     if not args.confirm:
         raise ConfigServiceError("destructive_confirmation_required")
     return _remove_provider_profile(args.provider)
@@ -1617,10 +1673,40 @@ def _dispatch_config(args: argparse.Namespace) -> dict[str, Any]:
             host_capability_state=args.host_imagegen,
             host_capabilities=host_capabilities,
         )
+        selection = None
+        selection_error = None
+        if service.config_store.read().values.get("provider_profiles"):
+            try:
+                decision = service.resolve_provider(
+                    request,
+                    host_capability_state=HostCapabilityState(args.host_imagegen),
+                )
+                selection = {
+                    "provider": decision.provider.value,
+                    "source": decision.source,
+                    "priority": decision.priority,
+                    "config_digest": decision.config_digest,
+                }
+            except ConfigServiceError as error:
+                selection_error = error.reason_code
+                return envelope(
+                    "action_required",
+                    selection_error,
+                    report=report.to_dict(),
+                    selection=None,
+                    selection_error=selection_error,
+                    primary_action=primary_action_for(
+                        selection_error,
+                        route=str(request.route or "generate"),
+                        provider="openai|openai-compatible|atlascloud",
+                    ),
+                )
         return envelope(
             report.status.value,
             report.reason_code,
             report=report.to_dict(),
+            selection=selection,
+            selection_error=selection_error,
         )
     if command == "verify":
         if not args.yes:
@@ -1695,13 +1781,42 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "doctor":
         return doctor_report(args.route)
     if args.command == "setup":
-        return build_setup_report(
+        selected_provider = args.provider
+        decision = None
+        service = _config_service()
+        selection_error = None
+        if selected_provider is None and service.config_store.read().values.get("provider_profiles"):
+            try:
+                decision = service.resolve_provider(
+                    StatusRequest(route=args.route),
+                    host_capability_state=HostCapabilityState(args.host_imagegen),
+                )
+                selected_provider = decision.provider.value
+            except ConfigServiceError as error:
+                selection_error = error.reason_code
+        report = build_setup_report(
             args.route,
             host_imagegen=args.host_imagegen,
-            selected_provider=args.provider,
+            selected_provider=selected_provider,
             required_image_capabilities={"mask"} if args.require_mask else set(),
             ocr_requirement=args.ocr_requirement,
         )
+        if decision is not None:
+            report["selection"] = {
+                "source": decision.source,
+                "priority": decision.priority,
+                "config_digest": decision.config_digest,
+            }
+        if selection_error is not None:
+            report["status"] = "action_required"
+            report["reason_code"] = selection_error
+            report["selected_provider"] = None
+            report["primary_action"] = primary_action_for(
+                selection_error,
+                route=args.route,
+                provider="openai|openai-compatible|atlascloud",
+            )
+        return report
     if args.command == "route":
         selected = select_route(
             args.input_kind,
@@ -1737,11 +1852,38 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
             output = Path(args.output).resolve()
             if output.exists() and not args.overwrite:
                 raise BackendContractError("backend_contract_exists")
+            provider = args.provider
+            selection_source = "user-confirmed"
+            selection = None
+            if provider is None:
+                route = (
+                    RouteName.GENERATE
+                    if args.mode == "generate"
+                    else RouteName.DIRECT_EDITABLE
+                )
+                decision = _config_service().resolve_provider(
+                    StatusRequest(route=route),
+                    host_capability_state=HostCapabilityState(args.host_imagegen),
+                )
+                provider = decision.provider.value
+                selection_source = decision.source
+                selection = {
+                    "source": decision.source,
+                    "priority": decision.priority,
+                    "config_digest": decision.config_digest,
+                }
             credential_source = None
             credential_ref = None
             endpoint_origin = None
             model = args.model
-            if args.provider == "openai-compatible":
+            profiles = load_runtime_config().values.get("provider_profiles", {})
+            profile = profiles.get(provider) if selection is not None else None
+            if isinstance(profile, dict):
+                model = model or profile.get("model")
+                credential_source = profile.get("credential_source")
+                credential_ref = profile.get("credential_ref")
+                endpoint_origin = profile.get("endpoint_origin")
+            elif provider == "openai-compatible":
                 profile = openai_compatible_profile()
                 if profile is None:
                     raise BackendContractError("provider_profile_missing")
@@ -1749,17 +1891,19 @@ def _dispatch_impl(args: argparse.Namespace) -> dict[str, Any]:
                 model = model or profile["model"]
                 credential_source = profile["credential_source"]
                 credential_ref = profile["credential_ref"]
-            elif args.provider in PROVIDERS:
+            elif provider in PROVIDERS:
                 credential_source, credential_ref = credential_manager().reference(
-                    args.provider
+                    provider
                 )
             contract = registry.create_contract(
-                args.provider,
+                provider,
                 mode=args.mode,
                 model=model,
+                selection_source=selection_source,
                 credential_source=credential_source,
                 credential_ref=credential_ref,
                 endpoint_origin=endpoint_origin,
+                selection=selection,
             )
             try:
                 atomic_write_json(output, contract)

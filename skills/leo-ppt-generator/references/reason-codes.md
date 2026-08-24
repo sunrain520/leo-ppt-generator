@@ -88,6 +88,7 @@
 | `config_reset` | 非敏感 Provider 配置已原子重建，receipt 已失效，OS 凭据仍保留 | 不适用 | 重新运行 `config` 或保持未配置状态 |
 | `provider_listed` | Provider Registry 与本地配置状态已列出 | 不适用 | 从列表选择一个 Provider，或继续当前任务 |
 | `provider_removed`、`provider_not_found` | Provider profile 已删除，或目标 profile 原本不存在 | 不适用 | 需要时重新运行 `config provider configure`；凭据不会随 profile 自动删除 |
+| `provider_preference_updated` | Provider 的 priority 或 enabled 偏好已更新 | 不适用 | 新任务将按更新后的配置重新选择；已冻结 run 不变 |
 | `credential_status_reported` | 凭据引用状态已列出，未读取 secret value | 不适用 | 缺失时运行 `config credential set` |
 | `paid_verification_consent_required` | `config verify` 尚未获得当前操作的一次性付费同意 | 是 | 在真实交互终端运行 `config` 并明确同意付费验证，或跳过并使用首张业务图片惰性验证 |
 | `provider_smoke_executor_unavailable` | 已获得同意，但当前 runtime 没有可调用的真实 smoke executor | 否 | 不声明 `ready`；升级 runtime 或直接进入业务图片惰性验证 |
@@ -191,6 +192,9 @@
 | `configuration_ready`、`provider_verification_not_run`、`provider_verification_stale` | 当前 Route 已真实验证、尚未验证或证据已过期 | 不适用 | 按 `start_task` 继续；stale 由显式 smoke 或下一张业务图片刷新 |
 | `development_config_reset_required` | 开发期配置与正式 schema v1 不符 | 是 | 确认后执行 `config repair` 重建非敏感 v1；不猜测迁移 |
 | `provider_selection_required` | 存在候选但未选择当前 Provider | 是 | 运行 `config` 进入统一向导 |
+| `provider_priority_tie` | 多个合格 Provider 共享最高 priority | 是 | 使用 `config provider priority` 调整排序，或 `config provider select` 设置全局首选 |
+| `requested_provider_unavailable` | 调用方显式指定的 Provider 不满足当前任务资格 | 是 | 修正指定项或配置该 Provider；不会静默改选其他 Provider |
+| `backend_selection_invalid` | backend contract 的冻结选择 metadata 缺失、格式错误或与选择来源不一致 | 否 | 重新由当前 CLI 创建 contract；不要手改选择 metadata |
 | `provider_profile_invalid:endpoint_origin`、`provider_profile_invalid:model` | endpoint 或 model 不符合 v1 合同 | 是 | `config repair` 修正字段 |
 | `credential_input_channel_unavailable` | 无 TTY、无 env、无显式 stdin 通道可用 | 是 | 在终端运行 `config`，或用环境变量引用 |
 | `credential_environment_missing` | env 引用存在但当前进程变量缺失 | 是 | `config repair` 改用宿主可见引用或 OS store |

@@ -102,9 +102,9 @@ def test_environment_reference_has_priority_over_os_store():
 
 
 def test_openai_compatible_uses_a_distinct_environment_and_os_store_reference():
-    manager = CredentialManager(FakeStore(), {"OPENAI_COMPATIBLE_API_KEY": "proxy-secret"})
+    manager = CredentialManager(FakeStore(), {"OPENAI_API_KEY": "proxy-secret"})
     report = manager.status("openai-compatible")
-    assert report["credential_ref"] == "env:OPENAI_COMPATIBLE_API_KEY"
+    assert report["credential_ref"] == "env:OPENAI_API_KEY"
     assert "proxy-secret" not in json.dumps(report)
 
 

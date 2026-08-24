@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from io import BytesIO
 import json
 import sys
 from pathlib import Path
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 from urllib.request import Request
 
 import fitz
+import pytest
 from leo_ppt_generator._vendor.codex_ppt.assemble_ppt import create_presentation
 from leo_ppt_generator._vendor.codex_ppt.image_providers.atlascloud import (
     AtlasCloudImageProvider,
@@ -24,6 +26,12 @@ from PIL import Image, ImageDraw
 from pptx import Presentation
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CODEX_PPT_RUNTIME = (
+    REPO_ROOT / "skills/leo-ppt-generator/runtime/src/leo_ppt_generator/_vendor/codex_ppt"
+)
+if str(CODEX_PPT_RUNTIME) not in sys.path:
+    sys.path.insert(0, str(CODEX_PPT_RUNTIME))
+from leo_ppt_generator._vendor.codex_ppt.image_gen import _validate_ppt_slide_image_bytes
 EDITABLE_RUNTIME = (
     REPO_ROOT
     / "skills/leo-ppt-generator/runtime/src/leo_ppt_generator/_vendor/editable_ppt/editppt/runtime"
@@ -92,6 +100,33 @@ def test_openai_compatible_provider_generates_with_forwarded_payload():
     result = provider.generate({"model": "gpt-image-2", "prompt": "diagram", "size": "1024x1024"})
     assert result == ["Z2VuZXJhdGVk"]
     assert images.generated == {"model": "gpt-image-2", "prompt": "diagram", "size": "1024x1024"}
+
+
+@pytest.mark.parametrize("size", ("2560x1440", "3840x2160"))
+def test_codex_image_cli_accepts_only_ppt_landscape_sizes(size: str):
+    result = run_upstream(
+        "codex-ppt",
+        ["image", "generate", "--prompt", "PPT slide", "--size", size, "--dry-run"],
+    )
+    assert result["returncode"] == 0, result
+
+
+@pytest.mark.parametrize("size", ("1536x1024", "1024x1024", "1024x1536", "auto"))
+def test_codex_image_cli_rejects_non_ppt_slide_sizes(size: str):
+    result = run_upstream(
+        "codex-ppt",
+        ["image", "generate", "--prompt", "PPT slide", "--size", size, "--dry-run"],
+    )
+    assert result["returncode"] != 0
+    assert "PPT slide size must be 2560x1440 (2K) or 3840x2160 (4K)." in result["stderr"]
+
+
+def test_codex_image_cli_rejects_provider_output_with_non_ppt_dimensions():
+    buffer = BytesIO()
+    Image.new("RGB", (1536, 1024), "white").save(buffer, format="PNG")
+
+    with pytest.raises(SystemExit):
+        _validate_ppt_slide_image_bytes(buffer.getvalue())
 
 
 def test_openai_compatible_provider_edits_with_multiple_reference_images(tmp_path: Path):

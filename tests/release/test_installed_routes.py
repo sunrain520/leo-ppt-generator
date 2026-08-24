@@ -77,6 +77,7 @@ def installed_cli(tmp_path_factory: pytest.TempPathFactory) -> Path:
         text=True,
         capture_output=True,
         check=False,
+        env={key: value for key, value in os.environ.items() if key != "PYTHONPATH"},
     )
     assert install.returncode == 0, install.stdout + install.stderr
     cli = root / ("venv/Scripts/leo-ppt.exe" if os.name == "nt" else "venv/bin/leo-ppt")

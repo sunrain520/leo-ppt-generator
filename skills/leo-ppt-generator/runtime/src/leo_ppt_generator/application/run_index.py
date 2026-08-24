@@ -253,6 +253,7 @@ class RunIndex:
                         "mode": backend_value["mode"],
                         "credential_source": backend_value["credential_source"],
                         "selection_source": backend_value["selection_source"],
+                        "selection": backend_value.get("selection"),
                         "capabilities": backend_value["capabilities"],
                         "schema_version": backend_value["schema_version"],
                     },

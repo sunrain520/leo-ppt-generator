@@ -29,7 +29,7 @@ def backend_contract(provider: str = "fixture", *, mode: str = "generate") -> di
         "openai-compatible": {
             "backend_kind": "openai-compatible",
             "credential_source": "environment-reference",
-            "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+            "credential_ref": "env:OPENAI_API_KEY",
             "endpoint_origin": "https://proxy.example.com/v1",
             "capabilities": {
                 "generate": True,

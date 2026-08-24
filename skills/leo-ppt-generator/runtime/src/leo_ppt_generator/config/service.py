@@ -35,6 +35,7 @@ from .runtime_config import (
     RuntimeConfigError,
     validate_endpoint_origin,
 )
+from .selection import ProviderSelection, ProviderSelectionError, select_provider
 from .transactions import ConfigTransactionCoordinator, ConfigTransactionError
 from . import models as domain
 
@@ -141,6 +142,41 @@ class ConfigService:
             host_capabilities=host_capabilities,
         )
 
+    def resolve_provider(
+        self,
+        request: StatusRequest,
+        *,
+        host_capability_state: HostCapabilityState = HostCapabilityState.UNKNOWN,
+        requested_provider: ProviderName | str | None = None,
+    ) -> ProviderSelection:
+        """从当前全局配置解析本次任务的 Provider，不写入配置或触网。"""
+
+        snapshot = self.config_store.read()
+        profiles = snapshot.values.get("provider_profiles", {})
+        credentials = {
+            name: self._credential_for_profile(ProviderName(name), profile).get("status")
+            == "available"
+            for name, profile in profiles.items()
+        }
+        try:
+            required = ROUTE_CAPABILITY_RESOLVER.resolve(
+                request.route or self.default_route,
+                request.task_capabilities,
+            )
+            return select_provider(
+                profiles=profiles,
+                credential_available=credentials,
+                required_capabilities=required,
+                registry=self.registry,
+                host_imagegen=host_capability_state,
+                preferred_provider=snapshot.values.get("selected_provider"),
+                config_digest=snapshot.canonical_digest,
+                requested_provider=requested_provider,
+            )
+        except (ProviderSelectionError, ValueError) as error:
+            reason = getattr(error, "reason_code", "provider_selection_invalid")
+            raise ConfigServiceError(reason) from error
+
     # --------------------------------------------------------------- configure
     def configure(self, request: ConfigureRequest) -> ConfigReport:
         """原子保存 Provider profile 与凭据引用，不发起 Provider 调用。"""
@@ -166,7 +202,24 @@ class ConfigService:
         previous = snapshot.values.get("provider_profiles", {}).get(
             provider.value, {}
         )
-        profile: dict[str, Any] = {"model": model}
+        existing_profiles = snapshot.values.get("provider_profiles", {})
+        default_priority = min(
+            1000,
+            max(
+                (
+                    int(item.get("priority", 100))
+                    for item in existing_profiles.values()
+                    if isinstance(item, Mapping)
+                ),
+                default=99,
+            )
+            + 1,
+        )
+        profile: dict[str, Any] = {
+            "model": model,
+            "enabled": bool(previous.get("enabled", True)),
+            "priority": int(previous.get("priority", default_priority)),
+        }
         if endpoint_origin is not None:
             profile["endpoint_origin"] = endpoint_origin
 
@@ -301,16 +354,24 @@ class ConfigService:
         host_capabilities: Sequence[Capability | str] = (),
     ) -> ConfigReport:
         facts = self._provider_facts(snapshot)
-        selected = snapshot.values.get("selected_provider")
-        selected_name = (
-            ProviderName(selected)
-            if isinstance(selected, str) and selected
-            else None
-        )
-        if selected_name is not None and selected_name not in {
-            item.provider for item in facts
-        }:
-            raise ConfigServiceError("provider_selection_invalid")
+        selected_name = None
+        try:
+            decision = self.resolve_provider(
+                request,
+                host_capability_state=host_capability_state,
+            )
+            if decision.provider is not ProviderName.BUILTIN_IMAGEGEN:
+                selected_name = decision.provider
+        except ConfigServiceError:
+            # 状态报告仍需呈现全局首选的本地缺失原因；CLI/setup 负责把选择失败升级为 action_required。
+            preferred = snapshot.values.get("selected_provider")
+            if isinstance(preferred, str):
+                try:
+                    candidate = ProviderName(preferred)
+                except ValueError as error:
+                    raise ConfigServiceError("provider_selection_invalid") from error
+                if candidate in {item.provider for item in facts}:
+                    selected_name = candidate
         return build_config_report(
             facts,
             selected_provider=selected_name,

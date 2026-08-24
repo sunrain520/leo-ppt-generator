@@ -37,10 +37,12 @@ launcher、setup、backend JSON 或内部诊断步骤当作普通用户的前置
    backend contract、run 或最终 PPTX 直接写到共享输出根。项目目录固定分层为
    `sources/`、`contracts/`、`samples/`、`runs/` 和 `deliveries/`；其中正式运行状态
    只写入 `runs/<run-id>/`，canonical PPTX 只写入该 run 的 `final/`。
-7. 用户确认 provider 与 mode 后，用 registry 生成并校验 backend contract，不手写
-   capability 或 credential 字段：
+7. 任务未显式指定 provider 时，从全局 `config.yaml` 自动解析已配置 Provider：合格
+   外部 Provider 优先于宿主 `builtin-imagegen`；单一候选自动选择，多候选按 priority
+   选择，最高优先级并列时才暂停请求补充配置。选择结果由 registry 生成并校验到
+   backend contract，不手写 capability 或 credential 字段：
 
-   `"$LEO_PPT" backend create --provider <builtin-imagegen|openai|openai-compatible|atlascloud> --mode <generate|edit> --output <project-root>/contracts/backend-<mode>.json`
+   `"$LEO_PPT" backend create [--provider <builtin-imagegen|openai|openai-compatible|atlascloud>] --mode <generate|edit> --output <project-root>/contracts/backend-<mode>.json`
 
    `"$LEO_PPT" backend validate <project-root>/contracts/backend-<mode>.json`
 

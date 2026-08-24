@@ -57,6 +57,45 @@ def test_create_from_request_copies_and_freezes_inputs_and_replays(tmp_path):
     assert replay.index.snapshot()["run_id"] == snapshot["run_id"]
 
 
+def test_run_freezes_provider_selection_metadata_after_global_preferences_change(tmp_path):
+    source = tmp_path / "brief.md"
+    source.write_text("# Deck\n", encoding="utf-8")
+    backend = tmp_path / "backend.json"
+    contract = backend_contract("openai")
+    contract["selection_source"] = "configured-priority"
+    contract["selection"] = {
+        "source": "configured-priority",
+        "priority": 1,
+        "config_digest": "a" * 64,
+    }
+    backend.write_text(json.dumps(contract), encoding="utf-8")
+    run_dir = tmp_path / "run"
+
+    created = RunIndex.create_from_request(
+        run_dir,
+        route="generate",
+        input_path=source,
+        backend_contract_path=backend,
+        runtime_identity="runtime-a",
+    )
+    snapshot = created.index.snapshot()
+
+    contract["provider"] = "atlascloud"
+    contract["selection"] = {
+        "source": "configured-priority",
+        "priority": 2,
+        "config_digest": "b" * 64,
+    }
+    backend.write_text(json.dumps(contract), encoding="utf-8")
+
+    assert snapshot["backend_contract"]["backend"] == "openai"
+    assert snapshot["backend_contract"]["selection"] == {
+        "source": "configured-priority",
+        "priority": 1,
+        "config_digest": "a" * 64,
+    }
+
+
 def test_create_from_request_scopes_run_under_project_root(tmp_path):
     project_root = tmp_path / "project"
     source = project_root / "sources" / "brief.md"

@@ -297,7 +297,7 @@ def _definitions() -> tuple[ProviderDefinition, ...]:
                 "openai-compatible", "openai-compatible/v1", "openai-compatible"
             ),
             capabilities=_capabilities(supported=all_capabilities),
-            credential_environments=frozenset({"OPENAI_COMPATIBLE_API_KEY"}),
+            credential_environments=frozenset({"OPENAI_API_KEY"}),
             default_model="gpt-image-2",
             max_reference_images=16,
             # 任意用户 endpoint 不得提升这些声明；保持 generic fail-closed。

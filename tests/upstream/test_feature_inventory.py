@@ -104,6 +104,7 @@ def test_every_upstream_python_file_is_vendored_or_explicitly_patched():
     allowed_patches = {
         "codex-ppt:slide_run_state.py",
         "codex-ppt:assemble_ppt.py",
+        "codex-ppt:image_gen.py",
         "codex-ppt:remove_chroma_key.py",
         "image-to-editable-ppt:runtime/deck_run_state.py",
         "image-to-editable-ppt:runtime/_input_normalization.py",
@@ -158,7 +159,9 @@ def test_adapted_slide_worker_preserves_upstream_contract_without_old_cli():
     ):
         assert anchor in prompt
     assert "scripts/image_gen.py" not in prompt
-    assert '"<absolute leo-ppt CLI path>" upstream codex-ppt -- image' in prompt
+    assert '"<absolute leo-ppt CLI path>" upstream --backend-contract <absolute run dir>/input/backend-contract.json codex-ppt -- image' in prompt
+    assert "Required slide image: 2560x1440 (16:9 2K)" in prompt
+    assert "--size 2560x1440" in prompt
     assert "`leo-ppt upstream" not in prompt
 
 

@@ -103,7 +103,7 @@ def test_config_status_is_versioned_and_side_effect_free(tmp_path, monkeypatch):
     """`leo-ppt config status` 输出 leo-ppt-config/v1 且不修改任何文件。"""
     monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path))
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_COMPATIBLE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ATLASCLOUD_API_KEY", raising=False)
 
     code, payload = invoke("config", "status", "--json")

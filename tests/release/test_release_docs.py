@@ -35,14 +35,9 @@ def test_readme_and_user_guide_cover_install_config_routes_recovery_and_validati
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     for anchor in (
-        "codex plugin marketplace add",
-        "codex plugin add leo-ppt-generator@leo-ppt-generator",
-        "skill-installer",
-        "https://github.com/sunrain520/leo-ppt-generator/tree/main/skills/leo-ppt-generator",
-        "curl -fsSL",
-        "install.sh | bash",
+        "完整本地源码",
+        "bash install.sh",
         "install.ps1",
-        "irm https://raw.githubusercontent.com",
         "Windows 10/11 x64",
         "$leo-ppt-generator",
         "OpenAI",
@@ -56,16 +51,10 @@ def test_readme_and_user_guide_cover_install_config_routes_recovery_and_validati
     ):
         assert anchor in readme
     for anchor in (
-        "skill-installer",
-        "https://github.com/sunrain520/leo-ppt-generator/tree/main/skills/leo-ppt-generator",
-        "curl -fsSL",
-        "install.sh | bash",
+        "完整本地源码",
+        "bash install.sh",
         "install.ps1",
-        "irm https://raw.githubusercontent.com",
         "Windows 10/11 x64",
-        "$CODEX_HOME/skills/leo-ppt-generator",
-        "$HOME/.agents/skills/leo-ppt-generator",
-        "codex plugin marketplace add",
         "leo-bootstrap.sh",
         "leo-bootstrap.ps1",
         "config provider configure --provider openai",
@@ -91,16 +80,13 @@ def test_install_docs_distinguish_both_discovery_mechanisms_and_restart_conditio
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
     for document in (readme, guide):
-        assert "codex plugin marketplace add" in document
-        assert "skill-installer" in document
-        assert "install.sh | bash" in document
+        assert "完整本地源码" in document
+        assert "bash install.sh" in document
         assert "自动" in document
         assert "下一轮" in document or "重新启动" in document
-    assert "不要同时安装重复副本" in readme
-    assert "$CODEX_HOME/skills/leo-ppt-generator" in guide
-    assert "$HOME/.agents/skills/leo-ppt-generator" in guide
+    assert "只保留一份" in readme
     assert "同名目录" in guide
-    assert "--upgrade" in guide
+    assert "安装器" in guide
 
 
 def test_public_installer_exists_and_documents_version_pinning():
@@ -119,11 +105,10 @@ def test_public_installer_exists_and_documents_version_pinning():
     assert "codeload.github.com/sunrain520/leo-ppt-generator" in windows_body
     assert "[string]$Ref" in windows_body
 
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     guide = (ROOT / "docs/guides/user-guide.md").read_text(encoding="utf-8")
-    assert "--ref <commit-or-tag>" in guide
-    assert "-Ref <commit-or-tag>" in guide
-    assert "固定版本" in guide
-    assert "发布 tag" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "当前公开的 GitHub `main` 不包含 Skill bundle" in readme
+    assert "当前公开 GitHub `main` 不包含 Skill bundle" in guide
 
 
 def test_user_guide_covers_non_destructive_upgrade_uninstall_and_privacy():
@@ -210,8 +195,10 @@ def test_skill_uses_bundle_root_and_has_no_repository_only_runtime_refs():
 def test_worker_prompts_only_use_current_cli_surfaces():
     slide = (BUNDLE / "prompts/slide-worker.md").read_text(encoding="utf-8")
     assert "scripts/image_gen.py" not in slide
-    assert '"<absolute leo-ppt CLI path>" upstream codex-ppt -- image generate' in slide
-    assert '"<absolute leo-ppt CLI path>" upstream codex-ppt -- image edit' in slide
+    expected_prefix = '"<absolute leo-ppt CLI path>" upstream --backend-contract <absolute run dir>/input/backend-contract.json codex-ppt -- image'
+    assert expected_prefix + ' generate' in slide
+    assert expected_prefix + ' edit' in slide
+    assert "--size 2560x1440" in slide
     assert "`leo-ppt upstream" not in slide
 
     page = (BUNDLE / "prompts/page-worker.md").read_text(encoding="utf-8")
@@ -306,7 +293,7 @@ def test_six_reader_roles_can_find_their_single_task_path():
         "testing": (ROOT / "docs/guides/testing.md").read_text(encoding="utf-8"),
     }
     role_tasks = {
-        "首次用户": ("readme", ("方式 A：Codex Plugin", "第一次生成 PPT")),
+        "首次用户": ("readme", ("当前安装方式：从完整本地源码安装", "第一次生成 PPT")),
         "Windows 用户": ("guide", ("Windows 10/11 x64", "leo-bootstrap.ps1")),
         "安全审查者": ("guide", ("DPAPI", "不接受聊天、命令参数或 pipe")),
         "支持运营": ("troubleshooting", ("primary_action", "唯一首选动作")),

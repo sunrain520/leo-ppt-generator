@@ -4,81 +4,27 @@
 
 ### 1.1 选择一种简单安装方式
 
-安装器面向 macOS arm64/x86_64 与 Windows 10/11 x64，不需要管理员权限或预装 Python。Plugin 与 standalone Skill 二选一，不要同时保留重复副本；各平台现场验证状态见[兼容性说明](compatibility.md)。
+安装器面向 macOS arm64/x86_64 与 Windows 10/11 x64，不需要管理员权限或预装 Python。每个宿主只保留一份 `leo-ppt-generator` Skill；各平台现场验证状态见[兼容性说明](compatibility.md)。
 
-远程安装以已公开的仓库和 release tag 为准。仓库、Skill 路径或脚本 URL 返回 404 表示该 revision 尚未公开可安装；停止重试并查看[故障处理](troubleshooting.md)。
+当前公开 GitHub `main` 不包含 Skill bundle，不能作为 Plugin marketplace、`skill-installer` 或远程一键安装来源。请从包含 `skills/leo-ppt-generator/`、`install.sh` 和 `install.ps1` 的完整本地源码工作树安装。
 
-方式一（推荐），安装 Codex Plugin：
-
-```text
-codex plugin marketplace add sunrain520/leo-ppt-generator --ref main
-codex plugin add leo-ppt-generator@leo-ppt-generator
-```
-
-把两行作为一次安装连续执行。生产使用时将 `main` 换为固定 release tag。安装后开启新对话。宿主若明确提供兼容的 Plugins marketplace 界面，也可在界面中选择 `Leo PPT Generator`；没有该入口时使用上面的 Codex CLI。
-
-方式二，安装 standalone Skill。在 Codex 中发送下面这句话：
-
-> 请使用 `skill-installer` 从以下地址安装：  
-> https://github.com/sunrain520/leo-ppt-generator/tree/main/skills/leo-ppt-generator
-
-`skill-installer` 会安装到 `$CODEX_HOME/skills/leo-ppt-generator`；未设置 `CODEX_HOME` 时默认为 `~/.codex/skills/leo-ppt-generator`。同名目录已经存在时会拒绝覆盖。安装成功后开启下一轮 Codex 对话，首次使用会自动初始化 runtime。
-
-不要对同一目标并发运行多个安装器；安装器会让竞争者 fail closed。Bash 进程被强制终止后，下一次可能报告 `.leo-ppt-generator.install.lock`；先确认没有活动安装进程，再只移除错误信息给出的精确锁目录，不能递归清理整个 Skill 父目录。
-
-方式三，在终端一键安装 standalone Skill。
-
-macOS arm64：
+macOS arm64/x86_64：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.sh | bash
+cd /path/to/leo-ppt-generator
+bash install.sh
 ```
 
 Windows 10/11 x64（PowerShell）：
 
 ```powershell
-irm https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.ps1 | iex
-```
-
-脚本自动完成平台检查、兼容解释器解析或私有 Python 3.12 安装、runtime 初始化、四条 route 本地检查和原子安装，不需要 `sudo`。它不会读取或保存 API key。macOS standalone 安装同时在 `${LEO_PPT_BIN_DIR:-$HOME/.local/bin}` 创建稳定的 `leo-ppt` 用户命令；该命令每次解析当前受管 runtime，因此升级后仍可直接运行 `leo-ppt config`。安装器不会改写系统 PATH；若命令目录尚未在 PATH，安装结果会输出需要加入 shell 配置的一行。希望先审阅脚本再执行时：
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.sh
-less install.sh
-bash install.sh
-```
-
-Windows 用户可先下载、查看再执行：
-
-```powershell
-irm https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.ps1 -OutFile install.ps1
-Get-Content .\install.ps1
+Set-Location C:\path\to\leo-ppt-generator
 .\install.ps1
 ```
 
-安装到通用 Agent Skill 发现目录：
+脚本自动完成平台检查、兼容解释器解析或私有 Python 3.12 安装、runtime 初始化、四条 route 本地检查和原子安装，不需要 `sudo`。它不会读取或保存 API key。macOS 安装同时在 `${LEO_PPT_BIN_DIR:-$HOME/.local/bin}` 创建稳定的 `leo-ppt` 用户命令；安装器不会改写系统 PATH。安装后重新启动 Codex，或至少开启下一轮对话，确认只出现一个 `leo-ppt-generator`。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.sh | bash -s -- --agents
-```
-
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/main/install.ps1))) -Agents
-```
-
-该目标为 `$HOME/.agents/skills/leo-ppt-generator`。不要同时保留 Codex 目录和通用目录两份副本。固定版本时，将两处占位符替换为同一个 release tag 或 commit：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/<commit-or-tag>/install.sh \
-  | bash -s -- --ref <commit-or-tag>
-```
-
-```powershell
-irm https://raw.githubusercontent.com/sunrain520/leo-ppt-generator/<commit-or-tag>/install.ps1 -OutFile install.ps1
-.\install.ps1 -Ref <commit-or-tag>
-```
-
-使用 `main` 获得最新版本；生产环境推荐固定版本。若已 checkout 本仓库，在仓库根目录 macOS 运行 `bash install.sh`，Windows 运行 `.\install.ps1`，即可使用本地 bundle。安装后重新启动 Codex，或至少开启下一轮对话，确认只出现一个 `leo-ppt-generator`。
+不要对同一目标并发运行多个安装器；安装器会让竞争者 fail closed。Bash 进程被强制终止后，下一次可能报告 `.leo-ppt-generator.install.lock`；先确认没有活动安装进程，再只移除错误信息给出的精确锁目录，不能递归清理整个 Skill 父目录。
 
 ### 1.2 安装后的状态与自动引导
 
@@ -125,7 +71,7 @@ leo-ppt config status --route generate --json
 
 1. 提交文章、报告、笔记、图片、PDF 或已确认来源可信的演示文稿，并说明受众、页数、场景和期望风格。Agent 会从内置与参考风格库（139 种整页风格 + 117 份模板规范，按视觉风格/论证模式/结构布局/品牌身份/图片渲染/信息图类型等轴正交组织）中推荐风格，选定后经确定性注入进入生成流程。
 2. 审阅大纲和完整逐页内容稿；事实、数字、引用或表达不正确时先修改内容，不进入制图。
-3. 确认视觉方向和图片服务。宿主图片能力已明确可用时无需密钥；否则选择官方 OpenAI、OpenAI-compatible 中转站或 AtlasCloud。外部 Provider 处于 `configured_unverified` 时可继续进入图片节点。
+3. 确认视觉方向和图片服务。已配置的合格外部 Provider 自动优先；多个候选按 priority 选择，只有最高优先级并列时才需要补充配置。没有合格外部 Provider 时，宿主图片能力已明确可用才作为零密钥兜底。外部 Provider 处于 `configured_unverified` 时可继续进入图片节点。
 4. 审阅一页样张。只有明确批准后才生成整套；更换图片服务、模型或主要风格时重新确认样张。
 5. 审阅最终 PPTX。图片式交付检查逐页可读性；可编辑交付还要检查对象、字体、主题边界和重开保存。未执行的真实服务、PowerPoint 或人工验收保持 `not-run`。
 
@@ -193,7 +139,7 @@ printf '%s\n' "$PROVIDER_KEY" | leo-ppt config credential set --provider openai 
 普通 pipe 不会被隐式读取；没有 `--key-stdin` 时，非 TTY 输入返回
 `credential_tty_required` 或 `credential_input_channel_unavailable`。
 
-不接受聊天、命令参数或 pipe 传入密钥：禁止把密钥发送到聊天、使用明文 `--api-key`、URL 查询参数，或让普通 stdin 被隐式读取。密钥不得写入 `config.yaml`、项目、Skill 目录、run、receipt、stdout、stderr 或日志。环境变量仍兼容：`OPENAI_API_KEY`、`OPENAI_COMPATIBLE_API_KEY`、`ATLASCLOUD_API_KEY` 与 `PADDLE_OCR_TOKEN`。
+不接受聊天、命令参数或 pipe 传入密钥：禁止把密钥发送到聊天、使用明文 `--api-key`、URL 查询参数，或让普通 stdin 被隐式读取。密钥不得写入 `config.yaml`、项目、Skill 目录、run、receipt、stdout、stderr 或日志。环境变量仍兼容：`OPENAI_API_KEY`、`ATLASCLOUD_API_KEY` 与 `PADDLE_OCR_TOKEN`。OpenAI 与 OpenAI-compatible 共用 `OPENAI_API_KEY`，中转站通过独立 `endpoint_origin` 区分。
 
 配置、验证或首次业务图片失败时，保留现有凭据、档案、用户材料和已完成产物。执行输出中的唯一 `primary_action`，然后重新运行 `config status` 或返回原对话恢复；不要无条件删除密钥、重装 Skill 或重新提交材料。
 
@@ -210,6 +156,8 @@ leo-ppt config provider configure --provider openai-compatible
 ```powershell
 & "<cli_reference>" config provider configure --provider openai-compatible
 ```
+
+`config provider list` 显示当前 profile、启用状态和 priority。使用 `config provider select --provider <provider>` 设定全局首选；使用 `config provider priority --provider <provider> --value <1-1000>` 调整候选排序，数值越小越优先；使用 `config provider enabled --provider <provider> --value true|false` 暂停或恢复候选资格。
 
 `auth add/status/remove`、顶层 `provider configure` 与 `config change` 仅作为兼容入口保留；
 新文档、Agent 和 `primary_action` 不再生成这些命令。
@@ -248,11 +196,11 @@ timeouts:
 
 ## 3. Backend Contract（高级自动化与审计）
 
-普通用户不应手写 JSON，也不需要在开始任务前创建 backend contract。Agent 会在已确认的配置、route 与样张边界内处理它。仅当你需要可复现的自动化或审计时，使用准确 CLI 生成并校验非敏感合同：
+普通用户不应手写 JSON，也不需要在开始任务前创建 backend contract。Agent 会从全局配置按“已配置 Provider 优先、priority 决胜、宿主能力兜底”规则自动选择，并在已确认的 route 与样张边界内处理它。仅当你需要可复现的自动化或审计时，使用准确 CLI 生成并校验非敏感合同：
 
 ```bash
 "$LEO_PPT" backend create \
-  --provider openai --mode generate --output ./backend.json
+  --mode generate --output ./backend.json
 "$LEO_PPT" backend validate ./backend.json
 ```
 
@@ -267,7 +215,12 @@ timeouts:
   "mode": "generate",
   "credential_source": "environment-reference",
   "credential_ref": "env:OPENAI_API_KEY",
-  "selection_source": "user-confirmed",
+  "selection_source": "configured-singleton",
+  "selection": {
+    "source": "configured-singleton",
+    "priority": 1,
+    "config_digest": "<config sha256>"
+  },
   "capabilities": {
     "generate": true,
     "edit": true,

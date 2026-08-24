@@ -7,7 +7,7 @@ from leo_ppt_generator.credentials import CredentialInputChannel, CredentialInpu
 PROPERTY_SETTINGS = settings(max_examples=128, derandomize=True, database=None, deadline=None, print_blob=True)
 ENV_NAMES = {
     "openai": "OPENAI_API_KEY",
-    "openai-compatible": "OPENAI_COMPATIBLE_API_KEY",
+    "openai-compatible": "OPENAI_API_KEY",
     "atlascloud": "ATLASCLOUD_API_KEY",
 }
 

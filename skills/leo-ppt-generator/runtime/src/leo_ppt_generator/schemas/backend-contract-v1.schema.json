@@ -21,7 +21,17 @@
     "mode": {"enum": ["generate", "edit"]},
     "credential_source": {"enum": ["host-managed", "environment-reference", "os-store-reference"]},
     "credential_ref": {"type": "string", "pattern": "^(env|host|keychain):[A-Za-z0-9_.:/-]+$"},
-    "selection_source": {"enum": ["user-confirmed", "fallback-policy"]},
+    "selection_source": {"enum": ["user-confirmed", "fallback-policy", "explicit-request", "configured-preferred", "configured-singleton", "configured-priority", "host-fallback"]},
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "priority", "config_digest"],
+      "properties": {
+        "source": {"enum": ["user-confirmed", "fallback-policy", "explicit-request", "configured-preferred", "configured-singleton", "configured-priority", "host-fallback"]},
+        "priority": {"type": ["integer", "null"], "minimum": 1},
+        "config_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "endpoint_origin": {"type": "string", "format": "uri"},
     "timeouts": {"type": "object"},
     "capabilities": {

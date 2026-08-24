@@ -48,6 +48,7 @@
         "mode": {"enum": ["generate", "edit"]},
         "credential_source": {"type": "string"},
         "selection_source": {"type": "string"},
+        "selection": {"type": ["object", "null"]},
         "capabilities": {"type": "object"},
         "schema_version": {"const": 1}
       }

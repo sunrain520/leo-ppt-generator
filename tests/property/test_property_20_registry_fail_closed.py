@@ -141,7 +141,7 @@ def test_property_20_registry_policy_is_fail_closed(case):
                 "endpoint_origin": endpoint,
                 "model": "gpt-image-2",
                 "credential_source": "environment-reference",
-                "credential_ref": "env:OPENAI_COMPATIBLE_API_KEY",
+                "credential_ref": "env:OPENAI_API_KEY",
                 promotion_field: promotion_value,
             }
         },
@@ -154,7 +154,7 @@ def test_property_20_registry_policy_is_fail_closed(case):
         with pytest.raises(RuntimeConfigError) as captured:
             load_runtime_config(
                 home=home,
-                environ={"OPENAI_COMPATIBLE_API_KEY": "test-only-placeholder"},
+                environ={"OPENAI_API_KEY": "test-only-placeholder"},
             )
 
     assert captured.value.reason_code == "provider_profile_invalid"

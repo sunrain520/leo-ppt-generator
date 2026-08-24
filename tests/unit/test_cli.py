@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from leo_ppt_generator import cli
+from leo_ppt_generator.config.runtime_config import ConfigStore
 from leo_ppt_generator.config.service import ConfigServiceError
 from leo_ppt_generator.credentials import CredentialManager, UnsupportedCredentialStore
 from PIL import Image
@@ -142,7 +143,7 @@ def test_backend_create_and_validate_reports_contract_and_credential_readiness(
 def test_openai_compatible_profile_is_frozen_into_backend_contract(tmp_path, monkeypatch):
     home = tmp_path / "home"
     monkeypatch.setenv("LEO_PPT_HOME", str(home))
-    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "test-environment-reference")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-environment-reference")
     configured = cli.dispatch(
         parse(
             "provider", "configure", "--provider", "openai-compatible",
@@ -159,7 +160,129 @@ def test_openai_compatible_profile_is_frozen_into_backend_contract(tmp_path, mon
     )
     assert created["contract"]["endpoint_origin"] == "https://proxy.example.com"
     assert created["contract"]["model"] == "proxy-image-model"
-    assert created["contract"]["credential_ref"] == "env:OPENAI_COMPATIBLE_API_KEY"
+    assert created["contract"]["credential_ref"] == "env:OPENAI_API_KEY"
+
+
+def test_backend_create_auto_selects_configured_provider_and_freezes_decision(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    monkeypatch.setenv("OPENAI_API_KEY", "configured-key")
+    ConfigStore(home).compare_and_swap(
+        None,
+        {
+            "schema_version": 1,
+            "provider_profiles": {
+                "openai": {
+                    "model": "gpt-image-2",
+                    "credential_source": "environment-reference",
+                    "credential_ref": "env:OPENAI_API_KEY",
+                    "enabled": True,
+                    "priority": 1,
+                }
+            },
+        },
+    )
+    output = tmp_path / "automatic.json"
+
+    created = cli.dispatch(
+        parse("backend", "create", "--mode", "generate", "--output", str(output))
+    )
+
+    assert created["contract"]["provider"] == "openai"
+    assert created["contract"]["selection_source"] == "configured-singleton"
+    assert created["contract"]["selection"] == {
+        "source": "configured-singleton",
+        "priority": 1,
+        "config_digest": ConfigStore(home).read().canonical_digest,
+    }
+
+
+def test_provider_priority_and_enabled_commands_change_future_auto_selection(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    monkeypatch.setenv("OPENAI_API_KEY", "configured-key")
+    monkeypatch.setenv("ATLASCLOUD_API_KEY", "atlas-key")
+    ConfigStore(home).compare_and_swap(
+        None,
+        {
+            "schema_version": 1,
+            "provider_profiles": {
+                "openai": {
+                    "model": "gpt-image-2",
+                    "credential_source": "environment-reference",
+                    "credential_ref": "env:OPENAI_API_KEY",
+                    "enabled": True,
+                    "priority": 1,
+                },
+                "atlascloud": {
+                    "model": "gpt-image-2",
+                    "credential_source": "environment-reference",
+                    "credential_ref": "env:ATLASCLOUD_API_KEY",
+                    "enabled": True,
+                    "priority": 2,
+                },
+            },
+        },
+    )
+
+    status = cli.dispatch(parse("config", "status", "--route", "generate", "--json"))
+    assert status["selection"]["provider"] == "openai"
+    assert status["selection"]["source"] == "configured-priority"
+
+    cli.dispatch(parse("config", "provider", "enabled", "--provider", "openai", "--value", "false", "--json"))
+    changed = cli.dispatch(parse("config", "status", "--route", "generate", "--json"))
+    assert changed["selection"]["provider"] == "atlascloud"
+    assert changed["selection"]["source"] == "configured-singleton"
+    assert changed["report"]["selected_provider"] == "atlascloud"
+
+    with pytest.raises(ConfigServiceError, match="provider_profile_invalid"):
+        cli.dispatch(
+            parse(
+                "config",
+                "provider",
+                "priority",
+                "--provider",
+                "atlascloud",
+                "--value",
+                "0",
+            )
+        )
+
+
+def test_config_status_blocks_when_enabled_candidates_share_top_priority(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("LEO_PPT_HOME", str(home))
+    monkeypatch.setenv("OPENAI_API_KEY", "configured-key")
+    monkeypatch.setenv("ATLASCLOUD_API_KEY", "atlas-key")
+    ConfigStore(home).compare_and_swap(
+        None,
+        {
+            "schema_version": 1,
+            "provider_profiles": {
+                "openai": {
+                    "model": "gpt-image-2",
+                    "credential_source": "environment-reference",
+                    "credential_ref": "env:OPENAI_API_KEY",
+                    "enabled": True,
+                    "priority": 1,
+                },
+                "atlascloud": {
+                    "model": "gpt-image-2",
+                    "credential_source": "environment-reference",
+                    "credential_ref": "env:ATLASCLOUD_API_KEY",
+                    "enabled": True,
+                    "priority": 1,
+                },
+            },
+        },
+    )
+
+    result = cli.dispatch(parse("config", "status", "--route", "generate", "--json"))
+
+    assert result["status"] == "action_required"
+    assert result["reason_code"] == "provider_priority_tie"
+    assert result["selection"] is None
+    assert result["primary_action"]["id"] == "resolve_provider_priority"
 
 
 def test_run_cli_create_advance_next_status_diagnose_cancel(tmp_path):
@@ -474,7 +597,7 @@ def test_config_status_uses_module_launcher_without_console_script(tmp_path, mon
     monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
     for name in (
         "OPENAI_API_KEY",
-        "OPENAI_COMPATIBLE_API_KEY",
+        "OPENAI_API_KEY",
         "ATLASCLOUD_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -514,7 +637,7 @@ def test_config_status_host_imagegen_available_reports_ready(tmp_path, monkeypat
     monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
     for name in (
         "OPENAI_API_KEY",
-        "OPENAI_COMPATIBLE_API_KEY",
+        "OPENAI_API_KEY",
         "ATLASCLOUD_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -591,7 +714,7 @@ def test_setup_and_config_provider_share_openai_compatible_choice():
 
 def test_config_provider_list_uses_registry_and_local_status(tmp_path, monkeypatch):
     monkeypatch.setenv("LEO_PPT_HOME", str(tmp_path / "home"))
-    for name in ("OPENAI_API_KEY", "OPENAI_COMPATIBLE_API_KEY", "ATLASCLOUD_API_KEY"):
+    for name in ("OPENAI_API_KEY", "ATLASCLOUD_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 
     result = cli.dispatch(parse("config", "provider", "list", "--json"))

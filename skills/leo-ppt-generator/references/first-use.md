@@ -22,8 +22,8 @@ Python、venv、runtime identity、内部目录或多条诊断命令，除非用
 
 ## 宿主与 Provider
 
-- 只有宿主明确声明 available，才能选择 `builtin-imagegen`；unknown 先核实，不能
-  推测为 available，也不能静默切换外部 Provider。
+- 合格的已配置外部 Provider 优先于宿主 `builtin-imagegen`；没有合格外部 Provider
+  时，宿主明确声明 available 才能作为兜底；unknown 先核实，不能推测为 available。
 - 统一配置入口是 `leo-ppt config`。读取 `config status --json --route <route>`：
   `configured_unverified` 表示本地配置完整、`execution_eligibility=allowed`、
   `installation_readiness=usable_unverified`，允许开始任务，首张真实业务图片承担
@@ -41,9 +41,9 @@ Python、venv、runtime identity、内部目录或多条诊断命令，除非用
 - `config reset --confirm` 只用于用户明确要求重建非敏感配置；它保留系统凭据，不得由
   Agent 根据普通配置失败自动执行。
 - 选择 `openai-compatible` 时，先用 HTTPS API base URL 与模型名配置 profile；任意
-  用户配置的 endpoint 默认不自动 probe、不查询模型列表、不幂等重试。一个可用
-  Provider 仍需用户确认；多个可用 Provider 必须让用户选择；用户拒绝外部服务时停止，
-  不要求配置。
+  用户配置的 endpoint 默认不自动 probe、不查询模型列表、不幂等重试。配置完成后，
+  单一合格 Provider 自动选中；多个合格 Provider 按 priority 选择，最高优先级并列时
+  才要求补充配置。用户拒绝外部服务时停止，不要求配置。
 - 环境中后来出现新 secret 不改变已冻结 run。切换图片 Provider 或 generation method
   后必须重新生成并确认样张。
 - OCR 不参与图片 Provider 选择。图片式 generate 不询问 PaddleOCR；editable 阶段仅把

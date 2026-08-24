@@ -6,6 +6,9 @@ Use this template when dispatching a slide subagent after the sample slide is ap
 Generate slide <N> for this codex-ppt deck.
 
 Deck dir: <absolute deck dir>
+Run dir: <absolute run dir>
+Backend contract: <absolute run dir>/input/backend-contract.json
+Required slide image: 2560x1440 (16:9 2K)
 Slide job file: <absolute deck dir>/prompts/slide_<NN>.json
 Output target owned by parent: <absolute deck dir>/origin_image/slide_<NN>.png
 Selected image backend: <built-in image tool OR CLI/API fallback>
@@ -26,8 +29,8 @@ Input images already prepared by the parent:
 Read the JSON job file, then follow its `prompt` field exactly. Use the selected image backend and the recorded sample generation method only.
 You must produce the final slide candidate by calling the selected image generation backend:
 - Built-in mode: use the built-in image generation/editing tool.
-- CLI/API fallback generate mode: use `"<absolute leo-ppt CLI path>" upstream codex-ppt -- image generate --prompt-file <job-prompt> --out <candidate-path>`.
-- CLI/API fallback edit mode: use `"<absolute leo-ppt CLI path>" upstream codex-ppt -- image edit --prompt-file <job-prompt> --image <absolute-input-path> --out <candidate-path>`; repeat `--image` for every required reference.
+- CLI/API fallback generate mode: use `"<absolute leo-ppt CLI path>" upstream --backend-contract <absolute run dir>/input/backend-contract.json codex-ppt -- image generate --size 2560x1440 --prompt-file <job-prompt> --out <candidate-path>`.
+- CLI/API fallback edit mode: use `"<absolute leo-ppt CLI path>" upstream --backend-contract <absolute run dir>/input/backend-contract.json codex-ppt -- image edit --size 2560x1440 --prompt-file <job-prompt> --image <absolute-input-path> --out <candidate-path>`; repeat `--image` for every required reference.
 
 Forbidden for final slide image creation:
 - local drawing or rendering scripts

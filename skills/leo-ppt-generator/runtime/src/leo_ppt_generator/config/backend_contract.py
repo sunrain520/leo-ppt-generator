@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 from .provider_registry import (
@@ -15,6 +15,19 @@ from .provider_registry import (
 
 class BackendContractError(ValueError):
     reason_code = "backend_contract_error"
+
+
+SELECTION_SOURCES = frozenset(
+    {
+        "user-confirmed",
+        "fallback-policy",
+        "explicit-request",
+        "configured-preferred",
+        "configured-singleton",
+        "configured-priority",
+        "host-fallback",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -100,6 +113,7 @@ class BackendRegistry:
         credential_source: str | None = None,
         credential_ref: str | None = None,
         endpoint_origin: str | None = None,
+        selection: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """从静态 registry 生成完整合同，并用同一 loader 自校验。"""
 
@@ -137,6 +151,15 @@ class BackendRegistry:
             contract["credential_ref"] = resolved_credential_ref
         if endpoint_origin is not None:
             contract["endpoint_origin"] = endpoint_origin
+        contract["selection"] = dict(
+            selection
+            if selection is not None
+            else {
+                "source": selection_source,
+                "priority": None,
+                "config_digest": None,
+            }
+        )
         self.load(contract, required={mode})
         return contract
 
@@ -156,6 +179,7 @@ class BackendRegistry:
             "capabilities",
             "endpoint_origin",
             "timeouts",
+            "selection",
         }
         for key in value:
             lowered = key.lower()
@@ -219,8 +243,31 @@ class BackendRegistry:
                 raise BackendContractError("credential_reference_invalid")
         elif credential_source != "host-managed" or reference is not None:
             raise BackendContractError("credential_reference_invalid")
-        if value.get("selection_source") not in {"user-confirmed", "fallback-policy"}:
+        selection_source = value.get("selection_source")
+        if selection_source not in SELECTION_SOURCES:
             raise BackendContractError("backend_selection_source_invalid")
+        selection = value.get("selection")
+        if selection is not None:
+            if not isinstance(selection, dict) or set(selection) != {
+                "source",
+                "priority",
+                "config_digest",
+            }:
+                raise BackendContractError("backend_selection_invalid")
+            if selection.get("source") != selection_source:
+                raise BackendContractError("backend_selection_invalid")
+            priority = selection.get("priority")
+            if priority is not None and (
+                isinstance(priority, bool) or not isinstance(priority, int) or priority < 1
+            ):
+                raise BackendContractError("backend_selection_invalid")
+            digest = selection.get("config_digest")
+            if digest is not None and (
+                not isinstance(digest, str)
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                raise BackendContractError("backend_selection_invalid")
         endpoint = value.get("endpoint_origin")
         if backend.name == "openai-compatible":
             if not isinstance(endpoint, str) or not endpoint:

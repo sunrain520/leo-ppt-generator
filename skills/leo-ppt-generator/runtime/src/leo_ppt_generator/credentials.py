@@ -26,7 +26,7 @@ FINGERPRINT_KEY_BYTES = 32
 CREDENTIAL_VERSION_PREFIX = "hmac-sha256"
 PROVIDERS = {
     "openai": "OPENAI_API_KEY",
-    "openai-compatible": "OPENAI_COMPATIBLE_API_KEY",
+    "openai-compatible": "OPENAI_API_KEY",
     "atlascloud": "ATLASCLOUD_API_KEY",
     "paddleocr": "PADDLE_OCR_TOKEN",
 }

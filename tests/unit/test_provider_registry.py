@@ -60,6 +60,17 @@ def test_generic_openai_compatible_endpoint_cannot_promote_unknown_safety_policy
     assert not first.model_discovery.automatic
 
 
+def test_openai_providers_share_the_canonical_runtime_api_key_field():
+    registry = ProviderRegistry.default()
+
+    assert registry.provider(ProviderName.OPENAI, None).credential_environments == frozenset(
+        {"OPENAI_API_KEY"}
+    )
+    assert registry.provider(
+        ProviderName.OPENAI_COMPATIBLE, "https://proxy.example.com/v1"
+    ).credential_environments == frozenset({"OPENAI_API_KEY"})
+
+
 def test_registry_snapshot_and_policy_ttls_are_immutable():
     registry = ProviderRegistry.default()
     snapshot = registry.snapshot()

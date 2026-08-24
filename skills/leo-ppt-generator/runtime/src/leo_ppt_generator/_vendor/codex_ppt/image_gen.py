@@ -37,7 +37,7 @@ DEFAULT_DOWNSCALE_SUFFIX = "-web"
 DEFAULT_OUTPUT_PATH = "output/imagegen/output.png"
 GPT_IMAGE_MODEL_PREFIX = "gpt-image-"
 
-ALLOWED_LEGACY_SIZES = {"1024x1024", "1536x1024", "1024x1536", "auto"}
+PPT_SLIDE_SIZES = frozenset({"2560x1440", "3840x2160"})
 ALLOWED_QUALITIES = {"low", "medium", "high", "auto"}
 ALLOWED_BACKGROUNDS = {"transparent", "opaque", "auto", None}
 ALLOWED_INPUT_FIDELITIES = {"low", "high", None}
@@ -223,13 +223,13 @@ def _parse_size(size: str) -> Optional[Tuple[int, int]]:
     return int(match.group(1)), int(match.group(2))
 
 
-def _validate_gpt_image_2_size(size: str) -> None:
-    if size == "auto":
-        return
+def _validate_ppt_slide_size(size: str) -> None:
+    if size not in PPT_SLIDE_SIZES:
+        _die("PPT slide size must be 2560x1440 (2K) or 3840x2160 (4K).")
 
     parsed = _parse_size(size)
     if parsed is None:
-        _die("size must be auto or WIDTHxHEIGHT, for example 1024x1024.")
+        _die("PPT slide size must be WIDTHxHEIGHT.")
 
     width, height = parsed
     max_edge = max(width, height)
@@ -237,26 +237,20 @@ def _validate_gpt_image_2_size(size: str) -> None:
     total_pixels = width * height
 
     if max_edge > GPT_IMAGE_2_MAX_EDGE:
-        _die("gpt-image-2 size maximum edge length must be less than or equal to 3840px.")
+        _die("PPT slide size maximum edge length must be less than or equal to 3840px.")
     if width % 16 != 0 or height % 16 != 0:
-        _die("gpt-image-2 size width and height must be multiples of 16px.")
+        _die("PPT slide size width and height must be multiples of 16px.")
     if max_edge / min_edge > GPT_IMAGE_2_MAX_RATIO:
-        _die("gpt-image-2 size long edge to short edge ratio must not exceed 3:1.")
+        _die("PPT slide size long edge to short edge ratio must not exceed 3:1.")
     if total_pixels < GPT_IMAGE_2_MIN_PIXELS or total_pixels > GPT_IMAGE_2_MAX_PIXELS:
         _die(
-            "gpt-image-2 size total pixels must be at least 655,360 and no more than 8,294,400."
+            "PPT slide size total pixels must be at least 655,360 and no more than 8,294,400."
         )
 
 
 def _validate_size(size: str, model: str) -> None:
-    if _is_gpt_image_2_model(model):
-        _validate_gpt_image_2_size(size)
-        return
-
-    if size not in ALLOWED_LEGACY_SIZES:
-        _die(
-            "size must be one of 1024x1024, 1536x1024, 1024x1536, or auto for this GPT Image model."
-        )
+    del model
+    _validate_ppt_slide_size(size)
 
 
 def _validate_quality(quality: str) -> None:
@@ -427,9 +421,29 @@ def _decode_and_write(images: List[str], outputs: List[Path], force: bool) -> No
         out_path = outputs[idx]
         if out_path.exists() and not force:
             _die(f"Output already exists: {out_path} (use --force to overwrite)")
+        image_bytes = base64.b64decode(image_b64)
+        _validate_ppt_slide_image_bytes(image_bytes)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_bytes(base64.b64decode(image_b64))
+        out_path.write_bytes(image_bytes)
         print(f"Wrote {out_path}")
+
+
+def _validate_ppt_slide_image_bytes(image_bytes: bytes) -> None:
+    try:
+        from PIL import Image
+    except Exception:
+        _die(f"Slide image validation requires Pillow. {_dependency_hint('pillow')}")
+    try:
+        with Image.open(BytesIO(image_bytes)) as image:
+            image.load()
+            actual = f"{image.width}x{image.height}"
+    except Exception:
+        _die("Provider returned an unreadable slide image.")
+    if actual not in PPT_SLIDE_SIZES:
+        _die(
+            "Provider returned a non-standard PPT slide image "
+            f"({actual}); required 2560x1440 (2K) or 3840x2160 (4K)."
+        )
 
 
 def _derive_downscale_path(path: Path, suffix: str) -> Path:
