@@ -44,6 +44,7 @@ home、凭据或 run。
 | 检查更新 | 运行 `"<CLI>" update --check` | 返回 `leo-ppt-update/v1`，不修改安装 |
 | 更新前预览 | 运行 `"<CLI>" update --dry-run --version <tag>` | 展示当前/目标版本且不激活 |
 | 执行更新 | 审阅后运行 `"<CLI>" update --yes --version <tag>` | 新 Skill 完成 stage、验证和原子激活 |
+| 一键发布 tag | 维护者运行 `bash scripts/publish-release.sh --publish` | 自动创建版本 tag、推送并验证 raw/codeload URL |
 | 新版本异常 | 运行 `"<CLI>" rollback` | current 切回上一健康 runtime |
 
 安装或升级失败不会删除当前健康版本。不要手工修改 `current.json`，不要递归清理 Skill

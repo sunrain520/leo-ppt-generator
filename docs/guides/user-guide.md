@@ -65,6 +65,17 @@ leo-ppt config status --route generate --json
 
 `setup --route ...`、完整 JSON 报告和 runtime identity 用于支持与自动化诊断，不是普通用户的首次配置步骤。它们不能替代真实 Provider、OCR、PowerPoint、worker 或人工验收的现场证据。
 
+### 1.2.1 维护者一键发布 tag
+
+发布脚本会从 runtime 版本自动生成对应的 `vX.Y.Z` tag。默认只预览；确认预检、发布归档和合同测试通过后，传入 `--publish` 才会创建 annotated tag、推送并验证 GitHub 公开 URL：
+
+```bash
+bash scripts/publish-release.sh
+bash scripts/publish-release.sh --publish
+```
+
+脚本要求工作树干净，禁止覆盖已有 tag、强推或代替 commit。发布后用户可执行 `leo-ppt update --yes --version <tag>`。
+
 ### 1.3 从材料到 PPTX
 
 普通用户在同一对话中按以下顺序推进：

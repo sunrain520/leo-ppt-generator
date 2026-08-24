@@ -116,6 +116,22 @@ Agent 会自动完成 runtime 初始化、能力检查、流程选择和恢复�
 - [已知限制](docs/guides/limitations.md)
 - [测试方案与证据分层](docs/guides/testing.md)
 
+## 6. 一键发布远程 tag
+
+维护者可让脚本从 `runtime/pyproject.toml` 自动读取版本并生成对应的 `vX.Y.Z` tag。默认只预览，不创建 tag、不推送：
+
+```bash
+bash scripts/publish-release.sh
+```
+
+确认预检、release manifest、分发包和发布合同测试通过后，一键创建 annotated tag、推送到 `origin`，并验证 GitHub 公开安装 URL：
+
+```bash
+bash scripts/publish-release.sh --publish
+```
+
+脚本禁止覆盖已有 tag，不执行 commit、不强推；发布完成后用户可运行 `leo-ppt update --yes --version <tag>` 更新。
+
 ## 许可证
 
 本项目使用 [MIT License](LICENSE)。
