@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed - 2026-08-25
+
+- 清理参考风格库与内置风格的同名重复：删除 `01_通用母版/商务专业/清爽专业风.md`、`02_行业内容域/政务公共/党政红风格.md`、`02_行业内容域/教育学术/教学课件风.md` 三份子目录参考副本，以顶层内置 `references/styles/<name>.md` 为唯一权威源（runtime `list_styles`/`load_style` 本就优先读顶层并去重）；同步修正 `_INDEX.md` 与 `style-library.md` 口径：01 通用母版 36→35、商务专业 8→7；02 行业内容域 48→46、政务公共 3→2、教育学术 6→5；可加载风格 139/127→136/124。`leo-ppt style list` 仍为 136，同名去重不再需要。作者: leokuang
+- 删除孤儿设计文档 `references/chart-integration.md`（ECharts SSR 结构化图表注入接入设计；未接线到 SKILL.md/route 流程，属死资源。图表注入代码落地仍为待排期 P1，见 `docs/plans/2026-08-23-007-*`）。作者: leokuang
+
+### Changed - 2026-08-25
+
+- 明确 `SKILL.md` description 触发边界：补齐"何时使用"（当用户要求做 PPT 演示稿、把视觉稿/图片/PDF 转成可编辑 PowerPoint、升级图片版 PPT、保留部分图片页形成 hybrid）与"何时不要用"（无 PPTX 交付意图的纯文档撰写排版、仅绘制单张配图/封面/图标、仅在网页/文档/表格交付且仅需轻微改动、一般图片生成/视觉设计/视频任务），正/负向边界均显式化。(user-visible)。作者: leokuang
+
 ### Added - 2026-08-23
 
 - 新增 100 种可参考 PPT 风格库：按 `01_通用母版（30）/ 02_行业内容域（35）/ 03_场景用途结构（35）` 三层多级分类，存放于 `references/styles/` 下；每风格含完整 GPT-Image-2 JSON Brief（visual_direction / canvas / color_palette / typography / layout_patterns / layout_usage_rule / layout_blueprints / visual_elements / rendering_constraints）与 `reference` 来源，并新增 `00_索引/_INDEX.md` 总索引。均为独立候选参考风格（`list_styles()` 载入 glob `references/styles/*.md`，不自动加载子目录），现有 12 个内置风格保持不变。(user-visible)。作者: leokuang

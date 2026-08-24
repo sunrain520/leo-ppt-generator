@@ -1,6 +1,6 @@
 ---
 name: leo-ppt-generator
-description: 从文章、报告、笔记或大纲生成图片式 PPTX；把图片、PDF 或用户确认可信的 PPT/PPTX 重建为对象级可编辑 PPTX；或将已完成的图片式演示文稿整套、指定页面升级为 editable/hybrid。用于用户要求制作 PPT、生成幻灯片、把视觉稿转成可编辑 PowerPoint、升级图片版 PPT 或保留部分图片页时。
+description: 生成图片式 PowerPoint（PPTX）演示文稿：从文章、报告、笔记或大纲产出成套逐页可交付的演示稿；或把图片、PDF 以及用户确认可信的 PPT/PPTX 重建为对象级可编辑 PPTX；或把已完成的图片式演示文稿整套、指定页升级为 editable/hybrid 混排。当用户要求"做一份 PPT 演示稿""把视觉稿、图片或 PDF 转成可编辑 PowerPoint""升级图片版 PPT"或"保留部分图片页形成 hybrid"时使用本 skill。不要用于：无 PPTX 交付意图的纯文档撰写与排版；仅绘制单张配图、封面、图表素材或图标；已在网页/文档/表格交付、仅需轻微改动的既有内容；以及一般的图片生成、视觉设计或视频任务。
 ---
 
 # Leo PPT Generator
