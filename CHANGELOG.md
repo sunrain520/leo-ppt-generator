@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed - 2026-08-25
 
 - 明确 `SKILL.md` description 触发边界：补齐"何时使用"（当用户要求做 PPT 演示稿、把视觉稿/图片/PDF 转成可编辑 PowerPoint、升级图片版 PPT、保留部分图片页形成 hybrid）与"何时不要用"（无 PPTX 交付意图的纯文档撰写排版、仅绘制单张配图/封面/图标、仅在网页/文档/表格交付且仅需轻微改动、一般图片生成/视觉设计/视频任务），正/负向边界均显式化。(user-visible)。作者: leokuang
+- 为 `references/styles/00_索引/_INDEX.md`（超过 300 行）补充 `## 目录`，含各轴与子类的页内锚点，消除 `layer.large-reference-no-toc` 告警。作者: leokuang
 
 ### Added - 2026-08-23
 
