@@ -355,3 +355,57 @@ def test_codex_prompt_asset_dispatch_result_blocker_and_status_flow(tmp_path: Pa
     status = run_upstream("codex-ppt", ["status", str(deck), "--json"])
     assert status["returncode"] == 0, status
     assert status["stdout"]["counts"] == {"recorded": 1, "blocked": 1}
+
+
+def test_codex_prompt_body_variant_overrides_dark_cover_reference(tmp_path: Path):
+    cover = tmp_path / "dark-cover.png"
+    cover.write_bytes(b"dark-cover")
+    deck = tmp_path / "deck"
+    spec = tmp_path / "deck_spec.json"
+    spec.write_text(
+        json.dumps(
+            {
+                "deck_name": "body-theme-regression",
+                "selected_image_backend": "built-in image tool",
+                "style": {
+                    "name": "dark blueprint",
+                    "visual_direction": "white/cyan linework on dark navy",
+                    "canvas": {"background": "dark navy #0F1B33"},
+                },
+                "style_variants": {
+                    "body": {
+                        "canvas": {"background": "off-white #F5F7FA"},
+                        "rules": ["MUST use the off-white body canvas; do not use dark navy."],
+                        "reference_inheritance": ["grid density", "line weight", "geometry"],
+                        "reference_exclusions": ["background", "palette", "foreground colors"],
+                    }
+                },
+                "approved_style_reference": {
+                    "path": str(cover),
+                    "role": "approved dark cover reference",
+                },
+                "slides": [
+                    {
+                        "number": 1,
+                        "title": "Body page",
+                        "style_variant": "body",
+                        "key_points": ["Exact claim"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    prepared = run_upstream(
+        "codex-ppt", ["prepare", "--spec", str(spec), "--out-dir", str(deck)]
+    )
+
+    assert prepared["returncode"] == 0, prepared
+    prompt = json.loads((deck / "prompts/slide_01.json").read_text(encoding="utf-8"))["prompt"]
+    assert '"name": "body"' in prompt
+    assert "off-white #F5F7FA" in prompt
+    assert "MUST use the off-white body canvas; do not use dark navy." in prompt
+    assert "Match only: grid density, line weight, geometry." in prompt
+    assert "Do not inherit: background, palette, foreground colors." in prompt
+    assert "overall visual identity" not in prompt

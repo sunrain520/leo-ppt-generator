@@ -36,6 +36,15 @@ blocked，而不是省略后继续。
 样张批准后，所有 slide job 继承同一 `sample_generation_method` 和 backend。
 backend 切换需要用户重新确认并使旧 job fingerprint 失效。
 
+### 页面主题变体
+
+同一套 deck 可以有封面、正文和收束等页面主题。遇到“深色封面 + 浅色正文”时，
+必须在 `deck_spec.style_variants` 声明正文的 `canvas.background` 和硬性 `rules`，并在
+正文 slide 设置 `style_variant: "body"`。如果正文引用深色封面样张，还必须通过
+`reference_inheritance` 只继承线宽、网格密度或圆角等结构语言，并在
+`reference_exclusions` 排除 `background`、`palette` 和前景色。页面主题优先于全局
+风格与样张的冲突背景；不得只在自由文本里写“正文白底”。
+
 ## 五层非补偿质量门
 
 - **内容事实：** 逐条对照来源与不可杜撰项；事实不明即阻断，不用视觉效果掩盖。

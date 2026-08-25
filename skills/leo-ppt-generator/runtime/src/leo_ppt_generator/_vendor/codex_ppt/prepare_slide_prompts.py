@@ -119,6 +119,45 @@ def _slide_images(slide: Dict[str, Any], *, slide_number: int, base_dir: Path) -
     return images
 
 
+def _style_variant(deck: Dict[str, Any], slide: Dict[str, Any], *, slide_number: int) -> Optional[Dict[str, Any]]:
+    """Resolve an optional page-level theme without weakening the deck style."""
+    name = slide.get("style_variant")
+    if name is None:
+        return None
+    if not isinstance(name, str) or not name.strip():
+        _die(f"Slide {slide_number}: style_variant must be a non-empty string.")
+    variants = deck.get("style_variants")
+    if not isinstance(variants, dict):
+        _die(f"Slide {slide_number}: style_variants must be an object when style_variant is set.")
+    variant = variants.get(name)
+    if not isinstance(variant, dict):
+        _die(f"Slide {slide_number}: unknown style_variant: {name}.")
+    return {"name": name, **variant}
+
+
+def _style_reference_rule(variant: Optional[Dict[str, Any]]) -> str:
+    if not variant:
+        return (
+            "Use Image 1 as the approved sample-slide style reference. Match its palette, "
+            "typography mood, density, texture, and overall visual identity. Do not copy "
+            "its exact layout unless this slide's layout explicitly asks for it.\n"
+        )
+    inherit = variant.get("reference_inheritance", [])
+    if not isinstance(inherit, list) or not all(isinstance(item, str) for item in inherit):
+        _die("style_variant.reference_inheritance must be a list of strings.")
+    excluded = variant.get("reference_exclusions", ["background", "foreground colors"])
+    if not isinstance(excluded, list) or not all(isinstance(item, str) for item in excluded):
+        _die("style_variant.reference_exclusions must be a list of strings.")
+    inherited = ", ".join(inherit) or "the declared visual attributes"
+    excluded_text = ", ".join(excluded) or "no visual attributes"
+    return (
+        "Use Image 1 only as a restricted style reference. Match only: "
+        f"{inherited}. Do not inherit: {excluded_text}. The page-level Canvas Theme "
+        "overrides any conflicting background or foreground treatment in Image 1. Do not "
+        "copy its exact layout or text.\n"
+    )
+
+
 def _sample_generation_method(spec: Dict[str, Any], *, base_dir: Path) -> Optional[Dict[str, Any]]:
     method = spec.get("sample_generation_method") or spec.get("image_generation_method")
     if method is None:
@@ -188,6 +227,7 @@ def _build_prompt(
 ) -> str:
     title = str(slide.get("title") or f"Slide {number}").strip()
     style = deck.get("style", {})
+    variant = _style_variant(deck, slide, slide_number=number)
     images: List[Dict[str, Any]] = []
     if global_style_reference:
         images.append(global_style_reference)
@@ -212,6 +252,7 @@ def _build_prompt(
         _format_block("Deck Goal", deck.get("goal")),
         _format_block("Required Background", required_background),
         _format_block("Global Style", style),
+        _format_block("Canvas Theme", variant),
     ]
 
     if images:
@@ -240,12 +281,7 @@ def _build_prompt(
     )
 
     if global_style_reference:
-        prompt_parts.append(
-            "## Style Reference Rule\n"
-            "Use Image 1 as the approved sample-slide style reference. Match its palette, "
-            "typography mood, density, texture, and overall visual identity. Do not copy "
-            "its exact layout unless this slide's layout explicitly asks for it.\n"
-        )
+        prompt_parts.append("## Style Reference Rule\n" + _style_reference_rule(variant))
 
     if images:
         prompt_parts.append(
@@ -309,6 +345,16 @@ def _write_template(path: Path) -> None:
             "color_palette": "white background, black marker lines, pale yellow highlights",
             "typography": "large readable Chinese headings, compact handwritten annotations",
         },
+        "style_variants": {
+            "body": {
+                "canvas": {"background": "white #FFFFFF"},
+                "rules": [
+                    "MUST use the declared body canvas even when the approved sample is dark."
+                ],
+                "reference_inheritance": ["line weight", "grid density", "corner treatment"],
+                "reference_exclusions": ["background", "foreground colors"],
+            }
+        },
         "approved_style_reference": {
             "path": "/absolute/path/to/approved-sample-slide.png",
             "role": "approved sample slide style reference",
@@ -332,6 +378,7 @@ def _write_template(path: Path) -> None:
             {
                 "number": 2,
                 "title": "Evidence",
+                "style_variant": "body",
                 "role": "data evidence",
                 "intent": "Explain a supplied result figure",
                 "key_points": ["Preserve the original figure", "Add two callouts"],
